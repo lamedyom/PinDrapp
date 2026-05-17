@@ -1,0 +1,26 @@
+.track {
+  width: 36px;
+  height: 20px;
+  padding: 2px;
+  border-radius: 999px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  transition: background 150ms ease;
+}
+
+.on {
+  background: var(--green);
+}
+
+.off {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  display: block;
+}
