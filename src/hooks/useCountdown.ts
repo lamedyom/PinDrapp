@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { differenceInSeconds } from 'date-fns';
 
 export interface Countdown {
@@ -24,17 +24,22 @@ function compute(target: Date): Countdown {
 }
 
 export function useCountdown(targetDate: Date): Countdown {
+  // Stable timestamp dependency so callers can pass a fresh Date each render without looping.
+  const ts = targetDate.getTime();
+  const targetRef = useRef<Date>(targetDate);
+  targetRef.current = targetDate;
+
   const [state, setState] = useState<Countdown>(() => compute(targetDate));
 
   useEffect(() => {
-    setState(compute(targetDate));
+    setState(compute(targetRef.current));
     const id = window.setInterval(() => {
-      const next = compute(targetDate);
+      const next = compute(targetRef.current);
       setState(next);
       if (next.isExpired) window.clearInterval(id);
     }, 1000);
     return () => window.clearInterval(id);
-  }, [targetDate]);
+  }, [ts]);
 
   return state;
 }

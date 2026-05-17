@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Pin } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -40,7 +40,8 @@ export function VideoCard({ post }: VideoCardProps) {
   }, []);
 
   const deal = post.dealId ? deals.find((d) => d.id === post.dealId) ?? null : null;
-  const countdown = useCountdown(deal?.expiresAt ?? new Date(Date.now() + 60_000));
+  const fallbackExpiry = useMemo(() => new Date(Date.now() + 3_600_000), []);
+  const countdown = useCountdown(deal?.expiresAt ?? fallbackExpiry);
   const dealHoursLeft = deal && !countdown.isExpired ? Math.max(1, countdown.hours) : null;
 
   const handleLike = () => {
@@ -66,7 +67,12 @@ export function VideoCard({ post }: VideoCardProps) {
   };
 
   return (
-    <div ref={cardRef} className={styles.card} style={{ background: post.thumbnailGradient }}>
+    <div
+      ref={cardRef}
+      id={`post-${post.id}`}
+      className={styles.card}
+      style={{ background: post.thumbnailGradient }}
+    >
       {visible && post.videoUrl ? (
         <ReactPlayer
           src={post.videoUrl}

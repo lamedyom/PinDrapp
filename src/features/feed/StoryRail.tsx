@@ -7,13 +7,20 @@ export function StoryRail() {
 
   const businesses = useMemo(() => {
     const seen = new Set<string>();
-    const out: { id: string; name: string; emoji: string; hasDeal: boolean; isLive: boolean }[] =
-      [];
+    const out: {
+      id: string;
+      postId: string;
+      name: string;
+      emoji: string;
+      hasDeal: boolean;
+      isLive: boolean;
+    }[] = [];
     for (const p of posts) {
       if (seen.has(p.businessId)) continue;
       seen.add(p.businessId);
       out.push({
         id: p.businessId,
+        postId: p.id,
         name: p.businessName,
         emoji: p.businessEmoji,
         hasDeal: p.hasDeal,
@@ -23,12 +30,23 @@ export function StoryRail() {
     return out;
   }, [posts]);
 
+  const scrollToCard = (postId: string) => {
+    const el = document.getElementById(`post-${postId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <section className={styles.section}>
       <div className={styles.label}>📍 Near You</div>
       <div className={`${styles.rail} no-scrollbar`}>
         {businesses.map((b) => (
-          <button key={b.id} type="button" className={styles.bubble}>
+          <button
+            key={b.id}
+            type="button"
+            className={styles.bubble}
+            onClick={() => scrollToCard(b.postId)}
+          >
             <div
               className={[
                 styles.ring,
