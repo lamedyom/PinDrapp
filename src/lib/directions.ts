@@ -1,6 +1,6 @@
 import { MAPBOX_TOKEN } from './mapbox';
 
-export type TravelMode = 'driving' | 'walking' | 'cycling';
+export type TravelMode = 'driving' | 'driving-traffic' | 'walking' | 'cycling';
 
 export interface RoutePoint {
   lat: number;

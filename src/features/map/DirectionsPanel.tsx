@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bike, Car, Footprints, X } from 'lucide-react';
+import { Bike, Car, Footprints, TrafficCone, X } from 'lucide-react';
 import { useDirectionsStore } from '../../stores/directionsStore';
 import { useMapStore } from '../../stores/mapStore';
 import { fetchRoute, formatDistance, formatDuration, type TravelMode } from '../../lib/directions';
@@ -11,6 +11,7 @@ import styles from './DirectionsPanel.module.css';
 const MODES: { id: TravelMode; label: string; Icon: typeof Footprints }[] = [
   { id: 'walking', label: 'Walk', Icon: Footprints },
   { id: 'driving', label: 'Drive', Icon: Car },
+  { id: 'driving-traffic', label: 'Traffic', Icon: TrafficCone },
   { id: 'cycling', label: 'Cycle', Icon: Bike },
 ];
 
