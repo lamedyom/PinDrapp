@@ -65,6 +65,19 @@ video {
   -webkit-user-select: none;
 }
 
+/* Scroll performance */
+[class*='scroll'],
+.no-scrollbar,
+main {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* GPU hint on animated elements */
+[data-animated='true'] {
+  will-change: transform;
+}
+
 /* Hide horizontal scrollbar where it's intentional */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
