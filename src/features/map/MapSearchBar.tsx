@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
 import MapboxGeocoder, { type Result } from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import { MAPBOX_TOKEN, hasMapboxToken } from '../../lib/mapbox';
@@ -10,6 +10,8 @@ export function MapSearchBar() {
   const containerRef = useRef<HTMLDivElement>(null);
   const flyToCoords = useMapStore((s) => s.flyToCoords);
   const userLocation = useMapStore((s) => s.userLocation);
+  const searchQuery = useMapStore((s) => s.searchQuery);
+  const setSearchQuery = useMapStore((s) => s.setSearchQuery);
   const [focused, setFocused] = useState(false);
   const geocoderRef = useRef<MapboxGeocoder | null>(null);
 
@@ -28,15 +30,22 @@ export function MapSearchBar() {
     const onResult = (ev: { result: Result }) => {
       const [lng, lat] = ev.result.center;
       flyToCoords(lat, lng, 15);
+      setSearchQuery('');
+    };
+    const onChange = (ev: { target: { value: string } }) => {
+      setSearchQuery(ev.target.value);
     };
     geocoder.on('result', onResult);
+    const input = containerRef.current.querySelector('input');
+    input?.addEventListener('input', onChange as unknown as EventListener);
     geocoderRef.current = geocoder;
     return () => {
       geocoder.off('result', onResult);
+      input?.removeEventListener('input', onChange as unknown as EventListener);
       geocoder.clear();
       geocoderRef.current = null;
     };
-  }, [flyToCoords, userLocation]);
+  }, [flyToCoords, setSearchQuery, userLocation]);
 
   if (!hasMapboxToken()) {
     return (
@@ -45,10 +54,22 @@ export function MapSearchBar() {
         <input
           type="text"
           placeholder="Search businesses, places..."
+          value={searchQuery}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className={styles.fallbackInput}
         />
+        {searchQuery && (
+          <button
+            type="button"
+            className={styles.clearBtn}
+            aria-label="Clear search"
+            onClick={() => setSearchQuery('')}
+          >
+            <X size={14} />
+          </button>
+        )}
         <SlidersHorizontal size={16} className={styles.rightIcon} />
       </div>
     );

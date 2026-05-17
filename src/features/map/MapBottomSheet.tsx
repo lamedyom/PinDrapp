@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, useMotionValue } from 'framer-motion';
 import { useMapStore, type SavedPlace, type ExploreBusiness } from '../../stores/mapStore';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { tapHaptic } from '../../lib/haptics';
+import { Search } from 'lucide-react';
 import styles from './MapBottomSheet.module.css';
 
 const COLLAPSED = 110;
@@ -16,6 +18,23 @@ export function MapBottomSheet() {
   const savedPlaces = useMapStore((s) => s.savedPlaces);
   const explorePlaces = useMapStore((s) => s.explorePlaces);
   const flyToPlace = useMapStore((s) => s.flyToPlace);
+  const searchQuery = useMapStore((s) => s.searchQuery);
+
+  const filteredSaved = useMemo(() => {
+    if (!searchQuery.trim()) return savedPlaces;
+    const q = searchQuery.toLowerCase();
+    return savedPlaces.filter(
+      (p) => p.name.toLowerCase().includes(q) || (p.category ?? '').toLowerCase().includes(q),
+    );
+  }, [savedPlaces, searchQuery]);
+
+  const filteredExplore = useMemo(() => {
+    if (!searchQuery.trim()) return explorePlaces;
+    const q = searchQuery.toLowerCase();
+    return explorePlaces.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q),
+    );
+  }, [explorePlaces, searchQuery]);
 
   const [screenH, setScreenH] = useState<number>(() =>
     typeof window === 'undefined' ? 800 : window.innerHeight,
@@ -92,9 +111,15 @@ export function MapBottomSheet() {
 
       <div className={styles.content}>
         {activeTab === 'myPlaces' ? (
-          <MyPlacesContent places={savedPlaces} onTap={flyToPlace} />
+          filteredSaved.length === 0 && searchQuery ? (
+            <EmptyState icon={<Search size={32} />} message={`No saved places match "${searchQuery}"`} />
+          ) : (
+            <MyPlacesContent places={filteredSaved} onTap={flyToPlace} />
+          )
+        ) : filteredExplore.length === 0 && searchQuery ? (
+          <EmptyState icon={<Search size={32} />} message={`No businesses match "${searchQuery}"`} />
         ) : (
-          <ExploreContent places={explorePlaces} onTap={flyToPlace} />
+          <ExploreContent places={filteredExplore} onTap={flyToPlace} />
         )}
       </div>
     </motion.div>

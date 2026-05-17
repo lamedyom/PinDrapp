@@ -32,6 +32,18 @@
   flex-shrink: 0;
 }
 
+.clearBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .fallbackInput {
   flex: 1;
   background: transparent;

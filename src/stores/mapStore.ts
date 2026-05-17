@@ -47,7 +47,9 @@ interface MapState {
   userLocation: UserLocation | null;
   mapCenter: MapCenter;
   flyTarget: { lat: number; lng: number; zoom?: number; ts: number } | null;
+  searchQuery: string;
 
+  setSearchQuery: (q: string) => void;
   setActiveTab: (tab: MapTab) => void;
   selectPin: (id: string) => void;
   clearPin: () => void;
@@ -120,6 +122,13 @@ export const useMapStore = create<MapState>()(
     userLocation: null,
     mapCenter: { lat: 40.7484, lng: -73.9857, zoom: 13 },
     flyTarget: null,
+    searchQuery: '',
+
+    setSearchQuery: (q) =>
+      set((s) => {
+        s.searchQuery = q;
+        if (q.trim().length > 0) s.activeTab = 'explore';
+      }),
 
     setActiveTab: (tab) =>
       set((s) => {

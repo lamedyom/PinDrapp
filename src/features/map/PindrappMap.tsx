@@ -49,15 +49,46 @@ export function PindrappMap() {
   );
 
   if (!hasMapboxToken()) {
+    const display = activeTab === 'myPlaces' ? savedPlaces : explorePlaces;
     return (
       <div className={styles.fallback}>
-        <div className={styles.fallbackCard}>
-          <div className={styles.fallbackTitle}>Map preview</div>
-          <p className={styles.fallbackBody}>
-            Add a Mapbox token to <code>.env</code> as <code>VITE_MAPBOX_TOKEN</code> to load real
-            tiles. The pins, sheet, and search still work in this preview.
-          </p>
+        <div className={styles.fallbackGrid}>
+          {display.map((p, i) => {
+            const tone =
+              'hasDeal' in p && p.hasDeal
+                ? 'deal'
+                : 'type' in p && (p.type === 'home' || p.type === 'work' || p.type === 'social')
+                  ? 'orange'
+                  : 'blue';
+            const col = i % 4;
+            const row = Math.floor(i / 4);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className={`${styles.fallbackPin} ${styles[`fallbackPin_${tone}`]}`}
+                style={{
+                  gridColumn: col + 1,
+                  gridRow: row + 1,
+                  transform: `translate(${(i % 3) * 6}px, ${(i % 2) * 8}px)`,
+                }}
+                onClick={() => selectPin(p.id)}
+                aria-label={p.name}
+              >
+                <span className={styles.fallbackEmoji}>{p.emoji}</span>
+                <span className={styles.fallbackName}>{p.name}</span>
+              </button>
+            );
+          })}
         </div>
+        <div className={styles.fallbackHint}>
+          Add <code>VITE_MAPBOX_TOKEN</code> to <code>.env</code> for live tiles
+        </div>
+        {activePopupId && (
+          <div className={styles.popupHost}>
+            <PinPopup id={activePopupId} />
+          </div>
+        )}
       </div>
     );
   }
