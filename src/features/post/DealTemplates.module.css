@@ -1,0 +1,67 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.card {
+  flex: 0 0 140px;
+  height: 90px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+  transition: border-color 150ms ease, transform 120ms ease;
+}
+
+.card:active {
+  transform: scale(0.97);
+}
+
+.orange {
+  border-color: var(--orange-border);
+}
+.blue {
+  border-color: var(--blue-border);
+}
+.green {
+  border-color: var(--green-border);
+}
+
+.emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.sub {
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: var(--text-muted);
+}
