@@ -23,6 +23,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
   position: relative;
 }

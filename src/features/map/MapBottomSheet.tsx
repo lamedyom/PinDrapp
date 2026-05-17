@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { motion, useMotionValue } from 'framer-motion';
+import { animate, motion, useMotionValue } from 'framer-motion';
 import { useMapStore, type SavedPlace, type ExploreBusiness } from '../../stores/mapStore';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -52,6 +52,15 @@ export function MapBottomSheet() {
   const expandedY = 0;
   const y = useMotionValue(initialY);
 
+  const snapTo = (target: number) => {
+    animate(y, target, {
+      type: 'spring',
+      damping: 30,
+      stiffness: 320,
+      mass: 0.9,
+    });
+  };
+
   const handleDragEnd = (
     _: MouseEvent | TouchEvent | PointerEvent,
     info: { velocity: { y: number } },
@@ -62,13 +71,25 @@ export function MapBottomSheet() {
     const candidates = [expandedY, initialY, collapsedY];
     let target: number;
     if (Math.abs(velocity) > 500) {
-      target = velocity > 0 ? collapsedY : expandedY;
+      if (velocity > 0) {
+        target = current < initialY - 10 ? initialY : collapsedY;
+      } else {
+        target = current > initialY + 10 ? initialY : expandedY;
+      }
     } else {
       target = candidates.reduce((prev, p) =>
         Math.abs(p - current) < Math.abs(prev - current) ? p : prev,
       );
     }
-    y.set(target);
+    snapTo(target);
+  };
+
+  const handleTap = () => {
+    const current = y.get();
+    // Cycle: closer to expanded → go default; closer to default → go expanded; collapsed → default
+    if (current < initialY - 30) snapTo(initialY);
+    else if (current > initialY + 30) snapTo(initialY);
+    else snapTo(expandedY);
   };
 
   return (
@@ -77,11 +98,13 @@ export function MapBottomSheet() {
       style={{ height: expanded, y }}
       drag="y"
       dragConstraints={{ top: 0, bottom: collapsedY }}
-      dragElastic={0.06}
+      dragElastic={0.08}
       dragMomentum={false}
       onDragEnd={handleDragEnd}
     >
-      <div className={styles.handle} aria-hidden />
+      <div className={styles.handleZone} onClick={handleTap}>
+        <div className={styles.handle} aria-hidden />
+      </div>
       <div className={styles.toggleWrap}>
         <div className={styles.toggle}>
           {(['myPlaces', 'explore'] as const).map((tab) => (

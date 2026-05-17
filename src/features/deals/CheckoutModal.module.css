@@ -2,6 +2,9 @@
   position: relative;
   padding: 6px 16px 20px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   max-height: 80vh;
 }
 

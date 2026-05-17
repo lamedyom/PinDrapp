@@ -1,109 +1,126 @@
 .mapWrap {
   position: absolute;
   inset: 0;
+  overflow: hidden;
 }
 
 .popupHost {
   position: absolute;
   left: 50%;
-  bottom: 340px;
+  bottom: 330px;
   transform: translateX(-50%);
   z-index: 40;
   pointer-events: auto;
+  animation: popupIn 180ms ease-out;
 }
 
-.fallback {
+@keyframes popupIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.findMeBtn {
   position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 92, 26, 0.04) 0%, transparent 60%),
-    radial-gradient(circle at 70% 70%, rgba(26, 58, 255, 0.05) 0%, transparent 55%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 64px),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 64px),
-    #0a0a10;
-  padding: 60px 16px 380px;
-  overflow: hidden;
-}
-
-.fallbackGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px 8px;
-  max-width: 360px;
-  margin: 0 auto;
-}
-
-.fallbackPin {
+  right: 12px;
+  bottom: 320px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(17, 17, 24, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-strong);
+  color: var(--blue);
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 6px 6px;
-  background: rgba(17, 17, 24, 0.85);
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  transition: transform 120ms ease, border-color 120ms ease;
+  justify-content: center;
+  z-index: 45;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform 120ms ease, background 120ms ease;
 }
 
-.fallbackPin:active {
+.findMeBtn:active {
   transform: scale(0.94);
+  background: rgba(26, 58, 255, 0.2);
 }
 
-.fallbackPin_orange {
-  border-color: rgba(255, 92, 26, 0.35);
-  box-shadow: 0 0 0 3px rgba(255, 92, 26, 0.08);
-}
-.fallbackPin_blue {
-  border-color: rgba(26, 58, 255, 0.35);
-  box-shadow: 0 0 0 3px rgba(26, 58, 255, 0.08);
-}
-.fallbackPin_deal {
-  border-color: rgba(0, 217, 126, 0.4);
-  box-shadow: 0 0 0 3px rgba(0, 217, 126, 0.1);
-  animation: dealBreathe 2.4s ease-in-out infinite;
-}
-
-@keyframes dealBreathe {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.04);
-  }
-}
-
-.fallbackEmoji {
-  font-size: 22px;
-}
-
-.fallbackName {
-  font-family: var(--font-head);
-  font-weight: 700;
-  font-size: 8px;
-  color: var(--text-primary);
-  text-align: center;
-  max-width: 60px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.fallbackHint {
+.demoHint {
   position: absolute;
   top: 64px;
-  right: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--font-body);
   font-size: 9px;
   color: var(--text-muted);
-  background: rgba(17, 17, 24, 0.7);
+  background: rgba(17, 17, 24, 0.85);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border);
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: var(--radius-pill);
   pointer-events: none;
+  z-index: 25;
+  white-space: nowrap;
 }
 
-.fallbackHint code {
+.demoHint code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--orange);
   font-size: 9px;
+}
+
+/* Override Mapbox's default control styling to match the dark theme */
+:global(.mapboxgl-ctrl-top-right) {
+  top: 64px !important;
+  right: 12px !important;
+  z-index: 25 !important;
+}
+
+:global(.mapboxgl-ctrl-bottom-left),
+:global(.mapboxgl-ctrl-bottom-right) {
+  display: none !important;
+}
+
+:global(.mapboxgl-ctrl-group) {
+  background: rgba(17, 17, 24, 0.92) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+  overflow: hidden;
+}
+
+:global(.mapboxgl-ctrl-group > button) {
+  width: 36px !important;
+  height: 36px !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+:global(.mapboxgl-ctrl-group > button:last-child) {
+  border-bottom: none !important;
+}
+
+:global(.mapboxgl-ctrl-group > button:hover) {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+:global(.mapboxgl-ctrl-group > button .mapboxgl-ctrl-icon) {
+  filter: invert(0.92);
+}
+
+:global(.mapboxgl-ctrl-attrib) {
+  display: none !important;
+}
+
+/* Keep mapbox popups out of the way of our custom popup */
+:global(.mapboxgl-popup) {
+  display: none;
 }

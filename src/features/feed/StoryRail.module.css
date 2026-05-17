@@ -16,7 +16,10 @@
   display: flex;
   gap: 10px;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 
 .bubble {

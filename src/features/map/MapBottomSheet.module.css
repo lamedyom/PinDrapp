@@ -12,16 +12,29 @@
   border-top-right-radius: 22px;
   display: flex;
   flex-direction: column;
-  touch-action: pan-y;
   box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
+  /* Sheet itself: vertical drag only */
+  touch-action: pan-y;
+}
+
+.handleZone {
+  /* Big tap target for grabbing the sheet */
+  padding: 6px 0 4px;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.handleZone:active {
+  cursor: grabbing;
 }
 
 .handle {
-  width: 32px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-  margin: 8px auto;
+  width: 36px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  margin: 6px auto 4px;
   flex-shrink: 0;
 }
 
@@ -29,6 +42,7 @@
   display: flex;
   justify-content: center;
   padding: 4px 0 10px;
+  flex-shrink: 0;
 }
 
 .toggle {
@@ -71,9 +85,11 @@
 
 .content {
   flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding: 0 14px 24px;
 }
 
@@ -82,8 +98,11 @@
   display: flex;
   gap: 10px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 8px;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 
 .savedCard {
@@ -216,4 +235,5 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
