@@ -1,73 +1,91 @@
-# React + TypeScript + Vite
+# Pindrapp
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> See it once. Find it forever.
 
-Currently, two official plugins are available:
+A mobile-first social discovery app for local businesses: feed → save to map → claim flash deals. Built with React + TypeScript + Vite, Mapbox GL, Stripe, and Cloudinary.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Quick start
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev             # web only (mock payments)
+npm run dev:all         # web + Stripe payment-intent server (requires server/.env)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+App runs at `http://localhost:5173`. The Stripe backend (optional) runs at `http://localhost:3001`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Environment
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Copy `.env.example` to `.env` and fill in keys:
+
 ```
+VITE_MAPBOX_TOKEN=                # pk.* token from mapbox.com (map tiles + geocoder)
+VITE_STRIPE_PUBLISHABLE_KEY=      # pk_test_* / pk_live_*
+VITE_CLOUDINARY_CLOUD_NAME=       # cloud name for video uploads
+VITE_CLOUDINARY_UPLOAD_PRESET=    # unsigned upload preset
+```
+
+For real Stripe payments, also create `server/.env`:
+
+```
+STRIPE_SECRET_KEY=sk_test_...
+PORT=3001
+```
+
+Without these keys the app stays fully usable:
+- Map screen shows a fallback panel instead of tiles (pins, sheet, search bar still work).
+- Checkout simulates payment success and adds the business to your map.
+- Video uploads fall back to a local blob URL.
+
+## What's inside
+
+```
+src/
+  app/            App entry, routes, font-loading gate
+  components/
+    layout/       AppShell, BottomNav, TopBar
+    ui/           Button, Badge, Avatar, Card, Modal, Toast, BottomSheet, Skeleton, EmptyState
+  features/
+    map/          MapScreen with custom pins, search bar, draggable bottom sheet
+    deals/        DealsScreen with live countdowns, urgency styling, Stripe checkout
+    feed/         FeedScreen with story rail, video cards, save-to-map animation
+    post/         PostScreen overlay with templates, recorder, Cloudinary upload
+    profile/      ProfileScreen with menu, deal templates, swipe-to-edit
+  stores/         Zustand stores (map, deal, feed, user, toast)
+  hooks/          useCountdown, useGeolocation, useVideoUpload
+  lib/            mapbox, stripe, api, haptics
+  styles/         globals.css, tokens.css
+server/           Stripe payment-intent API (optional)
+```
+
+## Design system
+
+| Token        | Value         | Use                                   |
+|--------------|---------------|---------------------------------------|
+| `--orange`   | `#FF5C1A`     | Brand, CTAs, active nav               |
+| `--blue`     | `#1A3AFF`     | Map pins, save actions                |
+| `--green`    | `#00D97E`     | Deals only — claim buttons, countdowns|
+| `--red`      | `#FF3A3A`     | Live badge, urgency                   |
+| `--bg-page`  | `#07070D`     | Page background                       |
+| `--bg-shell` | `#0A0A0F`     | App shell column                      |
+
+Rule: Green = deals only. Blue = map/save only. Orange = brand/CTA only. Never mix.
+
+Fonts: **Syne** (headings) + **DM Sans** (body), loaded from Google Fonts.
+
+## Scripts
+
+| Script              | What it does                                |
+|---------------------|---------------------------------------------|
+| `npm run dev`       | Vite dev server                             |
+| `npm run dev:server`| Express + Stripe payment-intent server      |
+| `npm run dev:all`   | Both, concurrently                          |
+| `npm run build`     | tsc + production build (PWA included)       |
+| `npm run preview`   | Serve `dist/`                               |
+| `npm run lint`      | ESLint                                      |
+
+## PWA
+
+The build emits a service worker and `manifest.webmanifest`. On iOS, open the deployed site in Safari and tap **Share → Add to Home Screen**.
+
+Icons are generated by `scripts/generate-icons.cjs` (run once after install if needed).

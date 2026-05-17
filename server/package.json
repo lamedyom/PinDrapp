@@ -1,0 +1,16 @@
+{
+  "name": "pindrapp-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pindrapp Stripe payment-intent server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "stripe": "^22.1.1"
+  }
+}
