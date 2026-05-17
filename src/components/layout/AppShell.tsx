@@ -19,12 +19,15 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const meta = TITLE_BY_PATH[location.pathname] ?? {};
   const hideTopBar = location.pathname === '/map';
+  const noScroll = location.pathname === '/map';
 
   return (
     <div className={styles.outer}>
       <div className={styles.column}>
         {!hideTopBar && <TopBar title={meta.title} showBack={meta.showBack} />}
-        <main className={styles.main}>{children ?? <Outlet />}</main>
+        <main className={noScroll ? styles.mainNoScroll : styles.main}>
+          {children ?? <Outlet />}
+        </main>
         <BottomNav />
       </div>
     </div>

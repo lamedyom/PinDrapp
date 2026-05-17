@@ -1,3 +1,14 @@
+import { MapSearchBar } from './MapSearchBar';
+import { PindrappMap } from './PindrappMap';
+import { MapBottomSheet } from './MapBottomSheet';
+import styles from './MapScreen.module.css';
+
 export function MapScreen() {
-  return <div style={{ padding: 24, fontFamily: 'Syne, sans-serif' }}>Map</div>;
+  return (
+    <div className={styles.screen}>
+      <MapSearchBar />
+      <PindrappMap />
+      <MapBottomSheet />
+    </div>
+  );
 }

@@ -24,4 +24,11 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+  position: relative;
+}
+
+.mainNoScroll {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: hidden;
 }

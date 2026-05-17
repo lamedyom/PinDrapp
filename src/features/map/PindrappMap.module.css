@@ -1,0 +1,62 @@
+.mapWrap {
+  position: absolute;
+  inset: 0;
+}
+
+.popupHost {
+  position: absolute;
+  left: 50%;
+  bottom: 340px;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: auto;
+}
+
+.fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 25%, #14141c 0%, transparent 60%),
+    radial-gradient(circle at 70% 70%, #1a1a26 0%, transparent 55%),
+    #0a0a10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.fallbackCard {
+  background: rgba(17, 17, 24, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  max-width: 320px;
+  text-align: center;
+}
+
+.fallbackTitle {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--orange);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.fallbackBody {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.fallbackBody code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--text-primary);
+}
