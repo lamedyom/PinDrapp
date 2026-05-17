@@ -32,6 +32,16 @@ export interface UserLocation {
   lng: number;
 }
 
+export interface SearchedLocation {
+  id: string;
+  name: string;
+  emoji: string;
+  placeName?: string;
+  category?: string;
+  lat: number;
+  lng: number;
+}
+
 export interface MapCenter {
   lat: number;
   lng: number;
@@ -48,6 +58,7 @@ interface MapState {
   mapCenter: MapCenter;
   flyTarget: { lat: number; lng: number; zoom?: number; ts: number } | null;
   searchQuery: string;
+  searchedLocation: SearchedLocation | null;
 
   setSearchQuery: (q: string) => void;
   setActiveTab: (tab: MapTab) => void;
@@ -59,6 +70,7 @@ interface MapState {
   flyToPlace: (id: string) => void;
   flyToCoords: (lat: number, lng: number, zoom?: number) => void;
   addSavedPlace: (place: Omit<SavedPlace, 'savedAt'>) => void;
+  setSearchedLocation: (loc: SearchedLocation | null) => void;
 }
 
 const mockSavedPlaces: SavedPlace[] = [
@@ -123,11 +135,22 @@ export const useMapStore = create<MapState>()(
     mapCenter: { lat: 40.7484, lng: -73.9857, zoom: 13 },
     flyTarget: null,
     searchQuery: '',
+    searchedLocation: null,
 
     setSearchQuery: (q) =>
       set((s) => {
         s.searchQuery = q;
         if (q.trim().length > 0) s.activeTab = 'explore';
+      }),
+
+    setSearchedLocation: (loc) =>
+      set((s) => {
+        s.searchedLocation = loc;
+        if (loc) {
+          s.flyTarget = { lat: loc.lat, lng: loc.lng, zoom: 15, ts: Date.now() };
+          s.selectedPinId = loc.id;
+          s.activePopupId = loc.id;
+        }
       }),
 
     setActiveTab: (tab) =>
@@ -163,11 +186,14 @@ export const useMapStore = create<MapState>()(
       }),
 
     flyToPlace: (id) => {
-      const all = [...get().savedPlaces, ...get().explorePlaces];
-      const target = all.find((p) => p.id === id);
-      if (!target) return;
+      const state = get();
+      const candidate =
+        state.savedPlaces.find((p) => p.id === id) ??
+        state.explorePlaces.find((p) => p.id === id) ??
+        (state.searchedLocation?.id === id ? state.searchedLocation : null);
+      if (!candidate) return;
       set((s) => {
-        s.flyTarget = { lat: target.lat, lng: target.lng, zoom: 15, ts: Date.now() };
+        s.flyTarget = { lat: candidate.lat, lng: candidate.lng, zoom: 15, ts: Date.now() };
         s.selectedPinId = id;
         s.activePopupId = id;
       });

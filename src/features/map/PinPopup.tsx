@@ -11,9 +11,16 @@ interface PinPopupProps {
 
 export function PinPopup({ id }: PinPopupProps) {
   const place = useMapStore((s) => {
-    return [...s.savedPlaces, ...s.explorePlaces].find((p) => p.id === id) ?? null;
+    const saved = s.savedPlaces.find((p) => p.id === id);
+    if (saved) return saved;
+    const explore = s.explorePlaces.find((p) => p.id === id);
+    if (explore) return explore;
+    if (s.searchedLocation?.id === id) return s.searchedLocation;
+    return null;
   });
   const close = useMapStore((s) => s.clearPin);
+  const setSearchedLocation = useMapStore((s) => s.setSearchedLocation);
+  const searchedLocationId = useMapStore((s) => s.searchedLocation?.id ?? null);
   const setDestination = useDirectionsStore((s) => s.setDestination);
 
   if (!place) return null;
@@ -23,6 +30,8 @@ export function PinPopup({ id }: PinPopupProps) {
       ? `${place.distanceMiles.toFixed(1)} mi`
       : null;
   const category = 'category' in place ? place.category : undefined;
+  const placeName = 'placeName' in place ? place.placeName : undefined;
+  const isSearched = searchedLocationId === place.id;
 
   const startDirections = () => {
     tapHaptic();
@@ -34,6 +43,12 @@ export function PinPopup({ id }: PinPopupProps) {
       lng: place.lng,
     });
     close();
+    if (isSearched) setSearchedLocation(null);
+  };
+
+  const handleClose = () => {
+    close();
+    if (isSearched) setSearchedLocation(null);
   };
 
   return (
@@ -43,22 +58,25 @@ export function PinPopup({ id }: PinPopupProps) {
         <div className={styles.copy}>
           <div className={styles.name}>{place.name}</div>
           <div className={styles.meta}>
-            {[category, distance].filter(Boolean).join(' · ')}
+            {placeName ?? [category, distance].filter(Boolean).join(' · ')}
           </div>
         </div>
-        <button type="button" className={styles.close} onClick={close} aria-label="Close">
+        <button type="button" className={styles.close} onClick={handleClose} aria-label="Close">
           ×
         </button>
       </div>
       <div className={styles.actions}>
-        <Button size="sm" variant="primary">
-          View Profile
-        </Button>
+        {!isSearched && (
+          <Button size="sm" variant="primary">
+            View Profile
+          </Button>
+        )}
         <Button
           size="sm"
-          variant="outline"
+          variant={isSearched ? 'primary' : 'outline'}
           leftIcon={<Navigation size={12} />}
           onClick={startDirections}
+          fullWidth={isSearched}
         >
           Get Directions
         </Button>

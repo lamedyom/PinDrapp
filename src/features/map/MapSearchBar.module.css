@@ -1,9 +1,12 @@
-.wrap {
+.outer {
   position: absolute;
   top: calc(12px + env(safe-area-inset-top, 0px));
   left: 16px;
   right: 16px;
   z-index: 30;
+}
+
+.wrap {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -32,6 +35,21 @@
   flex-shrink: 0;
 }
 
+.input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
 .clearBtn {
   width: 22px;
   height: 22px;
@@ -44,25 +62,120 @@
   flex-shrink: 0;
 }
 
-.fallbackInput {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--text-primary);
+.dropdown {
+  margin-top: 8px;
+  background: rgba(17, 17, 24, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  animation: dropdownIn 160ms ease-out;
 }
 
-.fallbackInput::placeholder {
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 10px;
+  border-radius: 12px;
+  text-align: left;
+  transition: background 120ms ease;
+}
+
+.result:hover,
+.result:focus-visible {
+  background: rgba(255, 92, 26, 0.1);
+  outline: none;
+}
+
+.result:active {
+  background: rgba(255, 92, 26, 0.18);
+  transform: scale(0.99);
+}
+
+.resultEmoji {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 92, 26, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.resultText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.resultName {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultPlace {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-family: var(--font-body);
+  font-size: 12px;
   color: var(--text-muted);
 }
 
-.geocoderWrap {
-  padding: 0 12px 0 4px;
+.errorRow {
+  color: var(--red);
 }
 
-.geocoderContainer {
-  flex: 1;
-  min-width: 0;
+.spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 92, 26, 0.25);
+  border-top-color: var(--orange);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

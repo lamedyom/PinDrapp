@@ -11,8 +11,7 @@ export function MapScreen() {
     <div className={styles.screen}>
       {!hasDestination && <MapSearchBar />}
       <PindrappMap />
-      <DirectionsPanel />
-      <MapBottomSheet />
+      {hasDestination ? <DirectionsPanel /> : <MapBottomSheet />}
     </div>
   );
 }

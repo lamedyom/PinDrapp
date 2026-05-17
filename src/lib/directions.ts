@@ -12,6 +12,7 @@ export interface RouteStep {
   distanceMeters: number;
   durationSeconds: number;
   maneuverType: string;
+  maneuverModifier?: string;
 }
 
 export interface RouteResult {
@@ -23,7 +24,7 @@ export interface RouteResult {
 }
 
 interface MapboxStep {
-  maneuver: { instruction: string; type: string };
+  maneuver: { instruction: string; type: string; modifier?: string };
   distance: number;
   duration: number;
 }
@@ -88,6 +89,7 @@ export async function fetchRoute(
         distanceMeters: s.distance,
         durationSeconds: s.duration,
         maneuverType: s.maneuver.type,
+        maneuverModifier: s.maneuver.modifier,
       })),
     ),
     bounds: [

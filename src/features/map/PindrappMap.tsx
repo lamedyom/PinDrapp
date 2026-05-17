@@ -9,7 +9,7 @@ import {
   type LineLayerSpecification,
 } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Layers, Locate, LocateFixed, MapPin } from 'lucide-react';
+import { Layers, Locate, LocateFixed, MapPin, Search } from 'lucide-react';
 import { MAPBOX_TOKEN, DEFAULT_CENTER, DEFAULT_ZOOM, isUsingDemoToken } from '../../lib/mapbox';
 import { useMapStore } from '../../stores/mapStore';
 import { useDirectionsStore, MAPBOX_STYLES } from '../../stores/directionsStore';
@@ -19,18 +19,21 @@ import { PinPopup } from './PinPopup';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './PindrappMap.module.css';
 
-const ROUTE_LAYER: LineLayerSpecification = {
-  id: 'route-line',
+// Outer glow halo around the route — wider, low opacity, slight blur.
+const ROUTE_GLOW: LineLayerSpecification = {
+  id: 'route-glow',
   type: 'line',
   source: 'route',
   layout: { 'line-join': 'round', 'line-cap': 'round' },
   paint: {
     'line-color': '#FF5C1A',
-    'line-width': 6,
-    'line-opacity': 0.9,
+    'line-width': 14,
+    'line-opacity': 0.25,
+    'line-blur': 6,
   },
 };
 
+// Dark inner casing to make the orange pop against light tiles too.
 const ROUTE_CASING: LineLayerSpecification = {
   id: 'route-casing',
   type: 'line',
@@ -38,8 +41,21 @@ const ROUTE_CASING: LineLayerSpecification = {
   layout: { 'line-join': 'round', 'line-cap': 'round' },
   paint: {
     'line-color': '#1A0A00',
-    'line-width': 10,
-    'line-opacity': 0.5,
+    'line-width': 8,
+    'line-opacity': 0.55,
+  },
+};
+
+// The main orange line — 4px as specified.
+const ROUTE_LAYER: LineLayerSpecification = {
+  id: 'route-line',
+  type: 'line',
+  source: 'route',
+  layout: { 'line-join': 'round', 'line-cap': 'round' },
+  paint: {
+    'line-color': '#FF5C1A',
+    'line-width': 4,
+    'line-opacity': 1,
   },
 };
 
@@ -48,6 +64,7 @@ export function PindrappMap() {
   const [mapReady, setMapReady] = useState(false);
   const savedPlaces = useMapStore((s) => s.savedPlaces);
   const explorePlaces = useMapStore((s) => s.explorePlaces);
+  const searchedLocation = useMapStore((s) => s.searchedLocation);
   const activeTab = useMapStore((s) => s.activeTab);
   const selectPin = useMapStore((s) => s.selectPin);
   const flyTarget = useMapStore((s) => s.flyTarget);
@@ -58,6 +75,7 @@ export function PindrappMap() {
 
   const route = useDirectionsStore((s) => s.route);
   const destination = useDirectionsStore((s) => s.destination);
+  const routeLoading = useDirectionsStore((s) => s.loading);
   const mapStyle = useDirectionsStore((s) => s.mapStyle);
   const toggleMapStyle = useDirectionsStore((s) => s.toggleMapStyle);
 
@@ -101,6 +119,39 @@ export function PindrappMap() {
     });
   }, [route, mapReady]);
 
+  // Pulse the route line opacity while the directions request is in flight.
+  useEffect(() => {
+    if (!mapReady) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    if (!routeLoading) {
+      // Restore steady state.
+      try {
+        if (map.getLayer('route-line')) map.setPaintProperty('route-line', 'line-opacity', 1);
+        if (map.getLayer('route-glow')) map.setPaintProperty('route-glow', 'line-opacity', 0.25);
+      } catch {
+        // layer not yet registered — ignore
+      }
+      return;
+    }
+    let rafId = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = (now - start) / 900; // ~0.9s cycle
+      const v = 0.5 + 0.4 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
+      try {
+        if (map.getLayer('route-line')) map.setPaintProperty('route-line', 'line-opacity', v);
+        if (map.getLayer('route-glow'))
+          map.setPaintProperty('route-glow', 'line-opacity', 0.15 + 0.25 * v);
+      } catch {
+        // ignore — layer may have been removed
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [routeLoading, mapReady]);
+
   const onMarkerClick = useCallback(
     (id: string) => (e: { originalEvent: { stopPropagation: () => void } }) => {
       e.originalEvent.stopPropagation();
@@ -134,17 +185,20 @@ export function PindrappMap() {
     }
   };
 
-  const routeSource = useMemo(() => {
-    if (!route) return null;
+  // Loading placeholder: a straight line from user to destination while
+  // the real route is being fetched (route data may not be available yet).
+  const loadingGeometry = useMemo<GeoJSON.LineString | null>(() => {
+    if (!routeLoading || !destination || !userLocation) return null;
     return {
-      type: 'geojson' as const,
-      data: {
-        type: 'Feature' as const,
-        properties: {},
-        geometry: route.geometry,
-      },
+      type: 'LineString',
+      coordinates: [
+        [userLocation.lng, userLocation.lat],
+        [destination.lng, destination.lat],
+      ],
     };
-  }, [route]);
+  }, [routeLoading, destination, userLocation]);
+
+  const renderedGeometry: GeoJSON.LineString | null = route?.geometry ?? loadingGeometry;
 
   return (
     <div className={styles.mapWrap}>
@@ -177,8 +231,13 @@ export function PindrappMap() {
       >
         <NavigationControl position="top-right" showCompass showZoom visualizePitch />
 
-        {routeSource && (
-          <Source id="route" type="geojson" data={routeSource.data}>
+        {renderedGeometry && (
+          <Source
+            id="route"
+            type="geojson"
+            data={{ type: 'Feature', properties: {}, geometry: renderedGeometry }}
+          >
+            <Layer {...ROUTE_GLOW} />
             <Layer {...ROUTE_CASING} />
             <Layer {...ROUTE_LAYER} />
           </Source>
@@ -192,6 +251,20 @@ export function PindrappMap() {
             style={{ zIndex: 8 }}
           >
             <div className={styles.destMarker}>
+              <MapPin size={28} fill="#FF5C1A" stroke="#fff" strokeWidth={2} />
+            </div>
+          </Marker>
+        )}
+
+        {searchedLocation && !destination && (
+          <Marker
+            longitude={searchedLocation.lng}
+            latitude={searchedLocation.lat}
+            anchor="bottom"
+            style={{ zIndex: 7 }}
+            onClick={onMarkerClick(searchedLocation.id)}
+          >
+            <div className={styles.searchedMarker}>
               <MapPin size={28} fill="#FF5C1A" stroke="#fff" strokeWidth={2} />
             </div>
           </Marker>
@@ -261,7 +334,8 @@ export function PindrappMap() {
 
       {isUsingDemoToken() && (
         <div className={styles.demoHint}>
-          Demo Mapbox token — set <code>VITE_MAPBOX_TOKEN</code> for production
+          <Search size={10} /> Demo Mapbox token — set{' '}
+          <code>VITE_MAPBOX_TOKEN</code> for production
         </div>
       )}
 
