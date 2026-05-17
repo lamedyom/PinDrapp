@@ -1,0 +1,104 @@
+import { useState } from 'react';
+
+export interface UploadResult {
+  url: string;
+  publicId: string;
+  duration: number;
+}
+
+interface UseVideoUpload {
+  upload: (file: File | Blob) => Promise<UploadResult>;
+  progress: number;
+  uploading: boolean;
+  error: string | null;
+  reset: () => void;
+}
+
+export function useVideoUpload(): UseVideoUpload {
+  const [progress, setProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = (): void => {
+    setProgress(0);
+    setUploading(false);
+    setError(null);
+  };
+
+  const upload = (file: File | Blob): Promise<UploadResult> => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string | undefined;
+    const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string | undefined;
+
+    setUploading(true);
+    setProgress(0);
+    setError(null);
+
+    if (!cloudName || cloudName.startsWith('your_') || !preset) {
+      // Local fallback: simulate upload using blob URL
+      return new Promise((resolve) => {
+        const blobUrl = URL.createObjectURL(file);
+        let p = 0;
+        const tick = window.setInterval(() => {
+          p += 12;
+          setProgress(Math.min(100, p));
+          if (p >= 100) {
+            window.clearInterval(tick);
+            setUploading(false);
+            resolve({ url: blobUrl, publicId: `local_${Date.now()}`, duration: 0 });
+          }
+        }, 120);
+      });
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', preset);
+    formData.append('resource_type', 'video');
+
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        setProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    return new Promise<UploadResult>((resolve, reject) => {
+      xhr.onload = () => {
+        setUploading(false);
+        try {
+          const data = JSON.parse(xhr.responseText) as {
+            secure_url?: string;
+            public_id?: string;
+            duration?: number;
+            error?: { message?: string };
+          };
+          if (xhr.status === 200 && data.secure_url) {
+            resolve({
+              url: data.secure_url,
+              publicId: data.public_id ?? '',
+              duration: data.duration ?? 0,
+            });
+          } else {
+            const msg = data.error?.message ?? 'Upload failed';
+            setError(msg);
+            reject(new Error(msg));
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Upload parse error';
+          setError(msg);
+          reject(new Error(msg));
+        }
+      };
+      xhr.onerror = () => {
+        setUploading(false);
+        const msg = 'Network error';
+        setError(msg);
+        reject(new Error(msg));
+      };
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`);
+      xhr.send(formData);
+    });
+  };
+
+  return { upload, progress, uploading, error, reset };
+}

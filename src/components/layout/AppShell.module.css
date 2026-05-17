@@ -1,0 +1,27 @@
+.outer {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-page);
+  display: flex;
+  justify-content: center;
+}
+
+.column {
+  width: 100%;
+  max-width: var(--shell-max);
+  background: var(--bg-shell);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.main {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+}

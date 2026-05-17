@@ -1,0 +1,80 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-head);
+  font-weight: 800;
+  white-space: nowrap;
+  border-radius: var(--radius-button-lg);
+  transition: opacity 120ms ease, transform 120ms ease;
+  user-select: none;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* Sizes */
+.sm {
+  font-size: 9px;
+  padding: 5px 10px;
+  border-radius: 10px;
+}
+.md {
+  font-size: 11px;
+  padding: 7px 14px;
+  letter-spacing: 0.02em;
+}
+.lg {
+  font-size: 14px;
+  padding: 12px 18px;
+  border-radius: 12px;
+}
+
+/* Variants */
+.primary {
+  background: var(--orange);
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(255, 92, 26, 0.35);
+}
+
+.deal {
+  background: var(--green);
+  color: #001a0d;
+}
+
+.save {
+  background: var(--blue);
+  color: #fff;
+}
+
+.outline {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.danger {
+  background: var(--red);
+  color: #fff;
+}

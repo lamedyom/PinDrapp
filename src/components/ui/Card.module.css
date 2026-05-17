@@ -1,0 +1,16 @@
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.green {
+  border-color: var(--green-soft);
+  box-shadow: 0 4px 24px rgba(0, 217, 126, 0.08);
+}
+
+.red {
+  border-color: var(--red-soft);
+  box-shadow: 0 0 0 1px rgba(255, 58, 58, 0.2);
+}

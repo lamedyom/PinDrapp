@@ -1,0 +1,49 @@
+:root {
+  /* Backgrounds */
+  --bg-page: #07070D;
+  --bg-shell: #0A0A0F;
+  --bg-surface: #111118;
+  --bg-card: #18181F;
+
+  /* Brand */
+  --orange: #FF5C1A;
+  --orange-glow: rgba(255, 92, 26, 0.45);
+  --orange-soft: rgba(255, 92, 26, 0.25);
+  --orange-border: rgba(255, 92, 26, 0.4);
+  --orange-focus: rgba(255, 92, 26, 0.5);
+
+  --blue: #1A3AFF;
+  --blue-soft: rgba(26, 58, 255, 0.25);
+  --blue-border: rgba(26, 58, 255, 0.4);
+  --blue-bg: rgba(26, 58, 255, 0.1);
+
+  --green: #00D97E;
+  --green-soft: rgba(0, 217, 126, 0.3);
+  --green-border: rgba(0, 217, 126, 0.4);
+
+  --red: #FF3A3A;
+  --red-soft: rgba(255, 58, 58, 0.25);
+
+  /* Borders & text */
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.1);
+  --text-primary: #F0EFEA;
+  --text-muted: rgba(240, 239, 234, 0.45);
+  --text-soft: rgba(240, 239, 234, 0.75);
+
+  /* Radius */
+  --radius-card: 16px;
+  --radius-button: 10px;
+  --radius-button-lg: 12px;
+  --radius-avatar: 14px;
+  --radius-avatar-lg: 16px;
+  --radius-pill: 20px;
+
+  /* Fonts */
+  --font-head: 'Syne', system-ui, sans-serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+
+  /* Layout */
+  --shell-max: 430px;
+  --nav-h: 64px;
+}
