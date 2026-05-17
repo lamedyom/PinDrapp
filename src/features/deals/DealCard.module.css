@@ -1,0 +1,190 @@
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.featured {
+  border-color: var(--green-soft);
+  box-shadow: 0 8px 30px rgba(0, 217, 126, 0.08);
+}
+
+.urgent {
+  border-color: rgba(255, 58, 58, 0.25);
+  box-shadow: 0 0 0 1px rgba(255, 58, 58, 0.2);
+}
+
+.expired {
+  opacity: 0.55;
+}
+
+.media {
+  position: relative;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji {
+  font-size: 52px;
+  opacity: 0.4;
+  z-index: 1;
+}
+
+.gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.7) 100%);
+  pointer-events: none;
+}
+
+.countdown {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 4px 8px;
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 10px;
+  z-index: 2;
+}
+
+.countdownUrgent {
+  border-color: rgba(255, 58, 58, 0.5);
+  color: var(--red);
+}
+
+.pulseDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: dotPulse 1.2s infinite;
+}
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.countText {
+  letter-spacing: 0.04em;
+}
+
+.expiredText {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.businessRow {
+  position: absolute;
+  left: 12px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.75);
+  z-index: 2;
+}
+
+.greenDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.body {
+  padding: 10px 12px 12px;
+}
+
+.headline {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+
+.desc {
+  margin: 0 0 8px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.priceMain {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--green);
+}
+
+.priceWas {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.claim {
+  background: var(--green);
+  color: #001a0d;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 10px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  transition: transform 100ms ease;
+  letter-spacing: 0.04em;
+}
+
+.claim:active {
+  transform: scale(0.96);
+}
+
+.claim:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.mapRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: rgba(26, 58, 255, 0.8);
+}
