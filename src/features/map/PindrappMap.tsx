@@ -1,14 +1,47 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Map, Marker, NavigationControl, type MapRef } from 'react-map-gl/mapbox';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Layer,
+  Map,
+  Marker,
+  NavigationControl,
+  Source,
+  type MapRef,
+  type LineLayerSpecification,
+} from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Locate, LocateFixed } from 'lucide-react';
+import { Layers, Locate, LocateFixed, MapPin } from 'lucide-react';
 import { MAPBOX_TOKEN, DEFAULT_CENTER, DEFAULT_ZOOM, isUsingDemoToken } from '../../lib/mapbox';
 import { useMapStore } from '../../stores/mapStore';
+import { useDirectionsStore, MAPBOX_STYLES } from '../../stores/directionsStore';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { SavedPin, ExplorePin, UserLocationDot } from './Pins';
 import { PinPopup } from './PinPopup';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './PindrappMap.module.css';
+
+const ROUTE_LAYER: LineLayerSpecification = {
+  id: 'route-line',
+  type: 'line',
+  source: 'route',
+  layout: { 'line-join': 'round', 'line-cap': 'round' },
+  paint: {
+    'line-color': '#FF5C1A',
+    'line-width': 6,
+    'line-opacity': 0.9,
+  },
+};
+
+const ROUTE_CASING: LineLayerSpecification = {
+  id: 'route-casing',
+  type: 'line',
+  source: 'route',
+  layout: { 'line-join': 'round', 'line-cap': 'round' },
+  paint: {
+    'line-color': '#1A0A00',
+    'line-width': 10,
+    'line-opacity': 0.5,
+  },
+};
 
 export function PindrappMap() {
   const mapRef = useRef<MapRef | null>(null);
@@ -22,20 +55,31 @@ export function PindrappMap() {
   const userLocation = useMapStore((s) => s.userLocation);
   const activePopupId = useMapStore((s) => s.activePopupId);
   const clearPin = useMapStore((s) => s.clearPin);
-  const geo = useGeolocation();
 
-  // Fly to user location on first GPS fix.
+  const route = useDirectionsStore((s) => s.route);
+  const destination = useDirectionsStore((s) => s.destination);
+  const mapStyle = useDirectionsStore((s) => s.mapStyle);
+  const toggleMapStyle = useDirectionsStore((s) => s.toggleMapStyle);
+
+  const geo = useGeolocation({ watch: true });
+
+  // Live-update user location dot.
   useEffect(() => {
     if (!geo.coords) return;
     setUserLocation({ lat: geo.coords.latitude, lng: geo.coords.longitude });
-    if (mapReady) {
-      mapRef.current?.flyTo({
-        center: [geo.coords.longitude, geo.coords.latitude],
-        zoom: 14,
-        duration: 1500,
-      });
-    }
-  }, [geo.coords, setUserLocation, mapReady]);
+  }, [geo.coords, setUserLocation]);
+
+  // First-fix recenter.
+  const firstFixRef = useRef(false);
+  useEffect(() => {
+    if (!geo.coords || firstFixRef.current || !mapReady) return;
+    firstFixRef.current = true;
+    mapRef.current?.flyTo({
+      center: [geo.coords.longitude, geo.coords.latitude],
+      zoom: 14,
+      duration: 1500,
+    });
+  }, [geo.coords, mapReady]);
 
   // Fly to selected pin / search result.
   useEffect(() => {
@@ -47,6 +91,15 @@ export function PindrappMap() {
       essential: true,
     });
   }, [flyTarget, mapReady]);
+
+  // Fit bounds when a new route arrives.
+  useEffect(() => {
+    if (!route || !mapReady) return;
+    mapRef.current?.fitBounds(route.bounds, {
+      padding: { top: 220, bottom: 320, left: 40, right: 40 },
+      duration: 900,
+    });
+  }, [route, mapReady]);
 
   const onMarkerClick = useCallback(
     (id: string) => (e: { originalEvent: { stopPropagation: () => void } }) => {
@@ -76,19 +129,29 @@ export function PindrappMap() {
             duration: 1200,
           });
         },
-        () => {
-          // ignore — denied
-        },
+        () => {},
       );
     }
   };
+
+  const routeSource = useMemo(() => {
+    if (!route) return null;
+    return {
+      type: 'geojson' as const,
+      data: {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: route.geometry,
+      },
+    };
+  }, [route]);
 
   return (
     <div className={styles.mapWrap}>
       <Map
         ref={mapRef}
         mapboxAccessToken={MAPBOX_TOKEN}
-        mapStyle="mapbox://styles/mapbox/dark-v11"
+        mapStyle={MAPBOX_STYLES[mapStyle]}
         initialViewState={{
           longitude: DEFAULT_CENTER.longitude,
           latitude: DEFAULT_CENTER.latitude,
@@ -109,14 +172,30 @@ export function PindrappMap() {
         maxPitch={75}
         style={{ width: '100%', height: '100%', touchAction: 'none' }}
         onLoad={() => setMapReady(true)}
+        onStyleData={() => setMapReady(true)}
         onClick={clearPin}
       >
-        <NavigationControl
-          position="top-right"
-          showCompass
-          showZoom
-          visualizePitch
-        />
+        <NavigationControl position="top-right" showCompass showZoom visualizePitch />
+
+        {routeSource && (
+          <Source id="route" type="geojson" data={routeSource.data}>
+            <Layer {...ROUTE_CASING} />
+            <Layer {...ROUTE_LAYER} />
+          </Source>
+        )}
+
+        {destination && (
+          <Marker
+            longitude={destination.lng}
+            latitude={destination.lat}
+            anchor="bottom"
+            style={{ zIndex: 8 }}
+          >
+            <div className={styles.destMarker}>
+              <MapPin size={28} fill="#FF5C1A" stroke="#fff" strokeWidth={2} />
+            </div>
+          </Marker>
+        )}
 
         {userLocation && (
           <Marker
@@ -155,6 +234,21 @@ export function PindrappMap() {
             </Marker>
           ))}
       </Map>
+
+      <button
+        type="button"
+        className={styles.styleBtn}
+        onClick={() => {
+          tapHaptic();
+          toggleMapStyle();
+        }}
+        aria-label={`Switch to ${mapStyle === 'streets' ? 'satellite' : 'streets'} view`}
+      >
+        <Layers size={18} />
+        <span className={styles.styleBtnLabel}>
+          {mapStyle === 'streets' ? 'Satellite' : 'Streets'}
+        </span>
+      </button>
 
       <button
         type="button"
