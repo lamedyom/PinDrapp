@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Navigation, Search, SlidersHorizontal, X } from 'lucide-react';
 import { geocodePlaces, type GeocodingResult } from '../../lib/geocoding';
 import { useMapStore } from '../../stores/mapStore';
+import { useDirectionsStore } from '../../stores/directionsStore';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './MapSearchBar.module.css';
 
@@ -12,6 +13,7 @@ export function MapSearchBar() {
   const setSearchedLocation = useMapStore((s) => s.setSearchedLocation);
   const searchQuery = useMapStore((s) => s.searchQuery);
   const setSearchQuery = useMapStore((s) => s.setSearchQuery);
+  const setDestination = useDirectionsStore((s) => s.setDestination);
 
   const [focused, setFocused] = useState(false);
   const [results, setResults] = useState<GeocodingResult[]>([]);
@@ -20,6 +22,7 @@ export function MapSearchBar() {
 
   const abortRef = useRef<AbortController | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -59,7 +62,7 @@ export function MapSearchBar() {
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [focused]);
 
-  const pickResult = (r: GeocodingResult) => {
+  const dropPin = (r: GeocodingResult) => {
     tapHaptic();
     setSearchedLocation({
       id: r.id,
@@ -72,22 +75,51 @@ export function MapSearchBar() {
     setSearchQuery('');
     setResults([]);
     setFocused(false);
+    inputRef.current?.blur();
   };
 
-  const showDropdown = focused && (loading || error || results.length > 0 || searchQuery.trim().length >= 2);
+  const routeTo = (r: GeocodingResult) => {
+    tapHaptic();
+    setDestination({
+      id: r.id,
+      name: r.name,
+      emoji: r.emoji,
+      lat: r.lat,
+      lng: r.lng,
+    });
+    setSearchQuery('');
+    setResults([]);
+    setFocused(false);
+    inputRef.current?.blur();
+  };
+
+  // On Enter: jump straight into directions for the top result.
+  const handleSubmit = () => {
+    if (results.length > 0) routeTo(results[0]);
+  };
+
+  const showDropdown =
+    focused && (loading || error || results.length > 0 || searchQuery.trim().length >= 2);
 
   return (
     <div className={styles.outer} ref={wrapRef}>
       <div className={`${styles.wrap} ${focused ? styles.focused : ''}`}>
         <Search size={16} className={styles.leftIcon} />
         <input
+          ref={inputRef}
           type="text"
           inputMode="search"
           enterKeyHint="search"
-          placeholder="Search any address, business, or place..."
+          placeholder="Search address — tap → for directions"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setFocused(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
           className={styles.input}
           autoComplete="off"
           autoCorrect="off"
@@ -119,22 +151,41 @@ export function MapSearchBar() {
           )}
           {error && <div className={`${styles.statusRow} ${styles.errorRow}`}>{error}</div>}
           {results.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              role="option"
-              className={styles.result}
-              onClick={() => pickResult(r)}
-            >
-              <span className={styles.resultEmoji}>{r.emoji}</span>
-              <span className={styles.resultText}>
-                <span className={styles.resultName}>{r.name}</span>
-                <span className={styles.resultPlace}>{r.placeName}</span>
-              </span>
-            </button>
+            <div key={r.id} className={styles.resultRow} role="option">
+              <button
+                type="button"
+                className={styles.result}
+                onClick={() => dropPin(r)}
+                aria-label={`Show ${r.name} on map`}
+              >
+                <span className={styles.resultEmoji}>{r.emoji}</span>
+                <span className={styles.resultText}>
+                  <span className={styles.resultName}>{r.name}</span>
+                  <span className={styles.resultPlace}>{r.placeName}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={styles.directionsBtn}
+                onClick={() => routeTo(r)}
+                aria-label={`Get directions to ${r.name}`}
+                title="Get directions"
+              >
+                <Navigation size={16} strokeWidth={2.4} />
+              </button>
+            </div>
           ))}
           {!loading && !error && results.length === 0 && searchQuery.trim().length >= 2 && (
             <div className={styles.statusRow}>No matches</div>
+          )}
+          {results.length > 0 && (
+            <div className={styles.dropdownHint}>
+              Tap a row to drop a pin · Tap{' '}
+              <span className={styles.inlineArrow}>
+                <Navigation size={10} strokeWidth={2.4} />
+              </span>{' '}
+              for directions
+            </div>
           )}
         </div>
       )}
