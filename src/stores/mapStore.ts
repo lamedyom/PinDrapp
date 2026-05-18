@@ -70,6 +70,7 @@ interface MapState {
   flyToPlace: (id: string) => void;
   flyToCoords: (lat: number, lng: number, zoom?: number) => void;
   addSavedPlace: (place: Omit<SavedPlace, 'savedAt'>) => void;
+  removeSavedPlace: (id: string) => void;
   setSearchedLocation: (loc: SearchedLocation | null) => void;
 }
 
@@ -213,6 +214,15 @@ export const useMapStore = create<MapState>()(
       set((s) => {
         if (s.savedPlaces.some((p) => p.id === place.id)) return;
         s.savedPlaces.push({ ...place, savedAt: new Date() });
+      }),
+
+    removeSavedPlace: (id) =>
+      set((s) => {
+        s.savedPlaces = s.savedPlaces.filter((p) => p.id !== id);
+        if (s.selectedPinId === id) {
+          s.selectedPinId = null;
+          s.activePopupId = null;
+        }
       }),
   })),
 );

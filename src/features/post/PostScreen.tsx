@@ -7,6 +7,8 @@ import { VideoSelector, type SelectedVideo } from './VideoSelector';
 import { useVideoUpload } from '../../hooks/useVideoUpload';
 import { useFeedStore } from '../../stores/feedStore';
 import { useDealStore, type Deal } from '../../stores/dealStore';
+import { useMapStore } from '../../stores/mapStore';
+import { AddLocationSheet, type AddedLocation } from '../places/AddLocationSheet';
 import styles from './PostScreen.module.css';
 
 type PostTag =
@@ -63,7 +65,14 @@ export function PostScreen() {
     duration: 4,
   });
   const [location_, setLocation] = useState('Downtown Hollywood, FL');
-  const [editingLocation, setEditingLocation] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const userLocation = useMapStore((s) => s.userLocation);
+
+  const handleLocationPick = (place: AddedLocation) => {
+    setLocation(place.placeName ?? place.name);
+    setLocationCoords({ lat: place.lat, lng: place.lng });
+  };
   const [posting, setPosting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -115,6 +124,10 @@ export function PostScreen() {
 
       const postId = `p_${Date.now()}`;
       const newDealId = tag === 'flashDeal' ? `d_${Date.now()}` : undefined;
+      const postCoords =
+        locationCoords ??
+        (userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null) ??
+        { lat: 26.0118, lng: -80.1495 };
 
       if (tag === 'flashDeal' && newDealId) {
         const newDeal: Deal = {
@@ -131,8 +144,8 @@ export function PostScreen() {
           distanceMiles: 0,
           isFeatured: false,
           stripeProductId: `prod_${postId}`,
-          lat: 40.7505,
-          lng: -73.9845,
+          lat: postCoords.lat,
+          lng: postCoords.lng,
         };
         addDeal(newDeal);
       }
@@ -153,6 +166,8 @@ export function PostScreen() {
         createdAt: new Date(),
         videoUrl,
         thumbnailGradient: 'linear-gradient(160deg,#1a0d2e,#0d1f3c)',
+        lat: postCoords.lat,
+        lng: postCoords.lng,
       });
 
       setSuccess(true);
@@ -331,35 +346,32 @@ export function PostScreen() {
                     )}
                   </AnimatePresence>
 
-                  <div className={styles.locationRow}>
+                  <button
+                    type="button"
+                    className={styles.locationRow}
+                    onClick={() => setLocationSheetOpen(true)}
+                    aria-label="Change post location"
+                  >
                     <MapPin size={14} className={styles.locationIcon} />
-                    {editingLocation ? (
-                      <input
-                        className={styles.input}
-                        value={location_}
-                        onChange={(e) => setLocation(e.target.value)}
-                        onBlur={() => setEditingLocation(false)}
-                        autoFocus
-                      />
-                    ) : (
-                      <>
-                        <span className={styles.locationText}>{location_}</span>
-                        <button
-                          type="button"
-                          className={styles.changeBtn}
-                          onClick={() => setEditingLocation(true)}
-                        >
-                          Change
-                        </button>
-                      </>
-                    )}
-                  </div>
+                    <span className={styles.locationText}>{location_}</span>
+                    <span className={styles.changeBtn}>Change</span>
+                  </button>
                 </>
               )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      <AddLocationSheet
+        open={locationSheetOpen}
+        onClose={() => setLocationSheetOpen(false)}
+        onSave={handleLocationPick}
+        proximity={userLocation}
+        title="Where is this post from?"
+        saveLabel="Use this location"
+        pickOnly
+      />
     </motion.div>
   );
 }

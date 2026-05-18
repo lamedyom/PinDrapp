@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { MenuSection } from './MenuSection';
 import { DealTemplatesSection } from './DealTemplatesSection';
 import { EditProfileModal } from './EditProfileModal';
+import { SavedPlacesSection } from './SavedPlacesSection';
 import styles from './ProfileScreen.module.css';
 
 export function ProfileScreen() {
@@ -93,6 +94,8 @@ export function ProfileScreen() {
           </div>
         </div>
       </div>
+
+      <SavedPlacesSection />
 
       <MenuSection />
 
