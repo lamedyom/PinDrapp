@@ -84,25 +84,31 @@ export function DirectionsPanel() {
 
   const [editTarget, setEditTarget] = useState<EditTarget>(null);
 
-  // Resolved origin lat/lng for the actual route call.
-  const resolvedOriginCoords = origin
-    ? { lat: origin.lat, lng: origin.lng }
-    : userLocation
-      ? { lat: userLocation.lat, lng: userLocation.lng }
-      : null;
-
+  // Stash the live user location in a ref so GPS pings (which fire every
+  // ~2s via watchPosition) don't enter any effect's dependency array and
+  // can't trigger a refetch loop that would make the panel flash.
+  const userLocationRef = useRef(userLocation);
   useEffect(() => {
-    if (!destination || !resolvedOriginCoords) return;
+    userLocationRef.current = userLocation;
+  }, [userLocation]);
+
+  // Refetch only when the user actually changes something — destination,
+  // explicit origin, mode — or the first time a GPS fix becomes available
+  // (so a route requested before GPS still kicks off once it arrives).
+  useEffect(() => {
+    if (!destination) return;
+    const o = origin
+      ? { lat: origin.lat, lng: origin.lng }
+      : userLocationRef.current
+        ? { lat: userLocationRef.current.lat, lng: userLocationRef.current.lng }
+        : null;
+    if (!o) return; // wait until we have any origin
+
     const controller = new AbortController();
     setLoading(true);
     setError(null);
     setRoute(null);
-    fetchRoute(
-      resolvedOriginCoords,
-      { lat: destination.lat, lng: destination.lng },
-      mode,
-      controller.signal,
-    )
+    fetchRoute(o, { lat: destination.lat, lng: destination.lng }, mode, controller.signal)
       .then((r) => {
         setRoute(r);
         setLoading(false);
@@ -114,13 +120,20 @@ export function DirectionsPanel() {
         setLoading(false);
       });
     return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    destination?.id,
     destination?.lat,
     destination?.lng,
-    resolvedOriginCoords?.lat,
-    resolvedOriginCoords?.lng,
+    origin?.id,
+    origin?.lat,
+    origin?.lng,
     mode,
+    // Flips false→true the first time a GPS fix arrives, then stays stable —
+    // so we kick off the fetch on that first fix without re-firing on drift.
+    userLocation !== null,
+    setError,
+    setLoading,
+    setRoute,
   ]);
 
   const looksNoRoute =

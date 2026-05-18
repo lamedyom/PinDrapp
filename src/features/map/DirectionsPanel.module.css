@@ -3,7 +3,9 @@
   left: 0;
   right: 0;
   bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-  z-index: 60;
+  /* Sits above the map (z-index ~30 search bar, ~45 controls) so map
+   * interactions never visually overlay the panel. */
+  z-index: 100;
   max-height: 60vh;
   background: rgba(10, 10, 15, 0.96);
   backdrop-filter: blur(20px);
