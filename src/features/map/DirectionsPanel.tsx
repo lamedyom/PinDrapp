@@ -28,7 +28,6 @@ import {
   type TravelMode,
 } from '../../lib/directions';
 import { tapHaptic } from '../../lib/haptics';
-import { showToast } from '../../stores/toastStore';
 import styles from './DirectionsPanel.module.css';
 
 const MODES: { id: TravelMode; label: string; Icon: typeof Footprints }[] = [
@@ -87,10 +86,12 @@ export function DirectionsPanel() {
         const msg = err instanceof Error ? err.message : 'Failed to fetch route';
         setError(msg);
         setLoading(false);
-        showToast(`Route error: ${msg}`);
       });
     return () => controller.abort();
   }, [destination, mode, userLocation, setRoute, setLoading, setError]);
+
+  const looksNoRoute = !!error && /no\s?route|nosegment|invalidinput|too\s?far|422/i.test(error);
+  const suggestDrive = looksNoRoute && (mode === 'walking' || mode === 'cycling');
 
   return (
     <AnimatePresence>
@@ -148,7 +149,27 @@ export function DirectionsPanel() {
 
           <div className={styles.stats}>
             {loading && <div className={styles.loadingBar} />}
-            {error && <div className={styles.error}>Couldn't find a route — {error}</div>}
+            {error && !loading && (
+              <div className={styles.errorBlock}>
+                <div className={styles.error}>
+                  {looksNoRoute
+                    ? `No ${mode === 'walking' ? 'walking' : mode === 'cycling' ? 'cycling' : ''} route available between these points.`
+                    : `Couldn't fetch route — ${error}`}
+                </div>
+                {suggestDrive && (
+                  <button
+                    type="button"
+                    className={styles.errorAction}
+                    onClick={() => {
+                      tapHaptic();
+                      setMode('driving');
+                    }}
+                  >
+                    Try driving instead
+                  </button>
+                )}
+              </div>
+            )}
             {route && !loading && (
               <>
                 <div className={styles.stat}>

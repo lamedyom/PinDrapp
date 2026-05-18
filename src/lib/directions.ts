@@ -46,6 +46,28 @@ interface MapboxDirectionsResponse {
   message?: string;
 }
 
+export class DirectionsError extends Error {
+  code: string;
+  status?: number;
+  constructor(message: string, code: string, status?: number) {
+    super(message);
+    this.name = 'DirectionsError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+/** True when the error means "no route exists between these points for this profile". */
+export function isNoRoute(err: unknown): boolean {
+  if (!(err instanceof DirectionsError)) return false;
+  return (
+    err.code === 'NoRoute' ||
+    err.code === 'NoSegment' ||
+    err.code === 'InvalidInput' ||
+    err.status === 422
+  );
+}
+
 export async function fetchRoute(
   origin: RoutePoint,
   destination: RoutePoint,
@@ -58,12 +80,27 @@ export async function fetchRoute(
     `?geometries=geojson&steps=true&overview=full&access_token=${MAPBOX_TOKEN}`;
 
   const res = await fetch(url, { signal });
-  if (!res.ok) {
-    throw new Error(`Directions API ${res.status}`);
+  // Try to read the response body even on non-2xx — Mapbox returns a JSON
+  // error envelope with { code, message } that's much more useful than the
+  // HTTP status alone (e.g. NoRoute / NoSegment / InvalidInput).
+  let data: MapboxDirectionsResponse | null = null;
+  try {
+    data = (await res.json()) as MapboxDirectionsResponse;
+  } catch {
+    // body wasn't JSON
   }
-  const data = (await res.json()) as MapboxDirectionsResponse;
+
+  if (!res.ok || !data) {
+    const code = data?.code ?? `HTTP${res.status}`;
+    const msg = data?.message ?? `Directions API ${res.status}`;
+    throw new DirectionsError(msg, code, res.status);
+  }
   if (data.code !== 'Ok' || data.routes.length === 0) {
-    throw new Error(data.message ?? 'No route found');
+    throw new DirectionsError(
+      data.message ?? `No route (${data.code})`,
+      data.code,
+      res.status,
+    );
   }
   const route = data.routes[0];
 
