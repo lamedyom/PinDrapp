@@ -29,6 +29,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Mapbox GL alone is ~1.7 MB inside the main bundle, which exceeds
+        // Workbox's default 2 MiB precache limit and breaks the build.
+        // 6 MiB gives us comfortable headroom; can be lowered once we
+        // start manual code-splitting the heavy chunks (mapbox-gl, dashjs).
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.mapbox\.com\/.*/i,
