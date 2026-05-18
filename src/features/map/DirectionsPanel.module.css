@@ -27,33 +27,110 @@
   flex-shrink: 0;
 }
 
-.header {
+.endpointsHeader {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: stretch;
+  gap: 8px;
   margin-bottom: 10px;
-  padding: 4px 0;
+  padding: 4px 0 2px;
 }
 
-.headerCopy {
+.endpoints {
   flex: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 8px 8px 10px;
   min-width: 0;
 }
 
-.label {
+.endpointConnector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  flex-shrink: 0;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.dotOrigin {
+  background: var(--blue);
+  box-shadow: 0 0 0 3px rgba(26, 58, 255, 0.18);
+}
+
+.dotDest {
+  background: var(--orange);
+  box-shadow: 0 0 0 3px rgba(255, 92, 26, 0.22);
+}
+
+.dotLine {
+  flex: 1;
+  width: 2px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.25),
+    rgba(255, 255, 255, 0.25) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  margin: 4px 0;
+}
+
+.endpointRows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.endpointRow {
+  display: grid;
+  grid-template-columns: 36px 1fr 16px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  text-align: left;
+  border-radius: 8px;
+  transition: background 120ms ease;
+  min-width: 0;
+}
+
+.endpointRow:hover,
+.endpointRow:focus-visible {
+  background: rgba(255, 92, 26, 0.06);
+  outline: none;
+}
+
+.endpointRow:active {
+  background: rgba(255, 92, 26, 0.12);
+}
+
+.endpointRow + .endpointRow {
+  border-top: 1px dashed rgba(255, 255, 255, 0.07);
+}
+
+.endpointLabel {
   font-family: var(--font-head);
   font-weight: 700;
   font-size: 9px;
-  color: var(--orange);
-  text-transform: uppercase;
+  color: var(--text-muted);
   letter-spacing: 0.08em;
-  margin-bottom: 2px;
+  text-transform: uppercase;
 }
 
-.destName {
+.endpointName {
   font-family: var(--font-head);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 13px;
   color: var(--text-primary);
   display: inline-flex;
   align-items: center;
@@ -63,20 +140,46 @@
   white-space: nowrap;
 }
 
-.destEmoji {
-  font-size: 18px;
+.endpointEmoji {
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
+.chev {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.headerActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.swapBtn,
 .closeBtn {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
-  color: var(--text-muted);
+  color: var(--text-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.swapBtn {
+  color: var(--orange);
+  background: rgba(255, 92, 26, 0.12);
+}
+
+.swapBtn:active,
+.closeBtn:active {
+  transform: scale(0.94);
 }
 
 .modes {
@@ -266,4 +369,209 @@
   color: var(--text-muted);
   white-space: nowrap;
   align-self: center;
+}
+
+/* Inline endpoint search overlay (slides up over the steps when editing
+ * From or To, leaving the modes row + handle visible underneath). */
+.overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(10, 10, 15, 0.98);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+  padding: 14px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 2;
+}
+
+.overlayHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.overlayLabel {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.overlayInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 42px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+
+.overlayLeftIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.overlayInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.overlayInput::placeholder {
+  color: var(--text-muted);
+}
+
+.overlayClearBtn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.overlayList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.overlayGps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(26, 58, 255, 0.12);
+  border: 1px solid rgba(26, 58, 255, 0.25);
+  border-radius: 12px;
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.overlayGpsIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--blue);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.overlayResult {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  text-align: left;
+  transition: background 120ms ease;
+  min-width: 0;
+}
+
+.overlayResult:hover,
+.overlayResult:focus-visible {
+  background: rgba(255, 92, 26, 0.1);
+  outline: none;
+}
+
+.overlayResult:active {
+  background: rgba(255, 92, 26, 0.18);
+}
+
+.overlayResultEmoji {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 92, 26, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.overlayResultText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.overlayResultName {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overlayResultSub {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overlayStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.overlayError {
+  color: var(--red);
+}
+
+.overlaySpinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 92, 26, 0.25);
+  border-top-color: var(--orange);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

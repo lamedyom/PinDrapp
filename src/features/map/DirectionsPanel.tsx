@@ -1,24 +1,28 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   ArrowUpLeft,
   ArrowUpRight,
   Bike,
   Car,
+  ChevronRight,
   CornerDownLeft,
   CornerDownRight,
   CornerUpLeft,
   CornerUpRight,
   Flag,
   Footprints,
+  Locate,
   MapPin,
   RotateCw,
+  Search,
   TrafficCone,
   X,
 } from 'lucide-react';
-import { useDirectionsStore } from '../../stores/directionsStore';
+import { useDirectionsStore, type DirectionsPoint } from '../../stores/directionsStore';
 import { useMapStore } from '../../stores/mapStore';
 import {
   fetchRoute,
@@ -27,6 +31,7 @@ import {
   type RouteStep,
   type TravelMode,
 } from '../../lib/directions';
+import { geocodePlaces, type GeocodingResult } from '../../lib/geocoding';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './DirectionsPanel.module.css';
 
@@ -36,6 +41,8 @@ const MODES: { id: TravelMode; label: string; Icon: typeof Footprints }[] = [
   { id: 'driving-traffic', label: 'Traffic', Icon: TrafficCone },
   { id: 'cycling', label: 'Cycle', Icon: Bike },
 ];
+
+const DEBOUNCE_MS = 220;
 
 function maneuverIcon(step: RouteStep): typeof ArrowUp {
   const t = step.maneuverType;
@@ -56,8 +63,11 @@ function maneuverIcon(step: RouteStep): typeof ArrowUp {
   return ArrowUp;
 }
 
+type EditTarget = 'origin' | 'destination' | null;
+
 export function DirectionsPanel() {
   const destination = useDirectionsStore((s) => s.destination);
+  const origin = useDirectionsStore((s) => s.origin);
   const mode = useDirectionsStore((s) => s.mode);
   const route = useDirectionsStore((s) => s.route);
   const loading = useDirectionsStore((s) => s.loading);
@@ -66,17 +76,33 @@ export function DirectionsPanel() {
   const setRoute = useDirectionsStore((s) => s.setRoute);
   const setLoading = useDirectionsStore((s) => s.setLoading);
   const setError = useDirectionsStore((s) => s.setError);
+  const setOrigin = useDirectionsStore((s) => s.setOrigin);
+  const setDestination = useDirectionsStore((s) => s.setDestination);
+  const swapEndpoints = useDirectionsStore((s) => s.swapEndpoints);
   const clearRoute = useDirectionsStore((s) => s.clearRoute);
   const userLocation = useMapStore((s) => s.userLocation);
 
+  const [editTarget, setEditTarget] = useState<EditTarget>(null);
+
+  // Resolved origin lat/lng for the actual route call.
+  const resolvedOriginCoords = origin
+    ? { lat: origin.lat, lng: origin.lng }
+    : userLocation
+      ? { lat: userLocation.lat, lng: userLocation.lng }
+      : null;
+
   useEffect(() => {
-    if (!destination) return;
-    const origin = userLocation ?? { lat: 40.7484, lng: -73.9857 };
+    if (!destination || !resolvedOriginCoords) return;
     const controller = new AbortController();
     setLoading(true);
     setError(null);
     setRoute(null);
-    fetchRoute(origin, { lat: destination.lat, lng: destination.lng }, mode, controller.signal)
+    fetchRoute(
+      resolvedOriginCoords,
+      { lat: destination.lat, lng: destination.lng },
+      mode,
+      controller.signal,
+    )
       .then((r) => {
         setRoute(r);
         setLoading(false);
@@ -88,10 +114,22 @@ export function DirectionsPanel() {
         setLoading(false);
       });
     return () => controller.abort();
-  }, [destination, mode, userLocation, setRoute, setLoading, setError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    destination?.lat,
+    destination?.lng,
+    resolvedOriginCoords?.lat,
+    resolvedOriginCoords?.lng,
+    mode,
+  ]);
 
-  const looksNoRoute = !!error && /no\s?route|nosegment|invalidinput|too\s?far|422/i.test(error);
+  const looksNoRoute =
+    !!error && /no\s?route|nosegment|invalidinput|too\s?far|422/i.test(error);
   const suggestDrive = looksNoRoute && (mode === 'walking' || mode === 'cycling');
+
+  const originDisplay = origin
+    ? { emoji: origin.emoji, name: origin.name }
+    : { emoji: '📍', name: userLocation ? 'My location' : 'Waiting for GPS…' };
 
   return (
     <AnimatePresence>
@@ -105,25 +143,73 @@ export function DirectionsPanel() {
         >
           <div className={styles.handle} aria-hidden />
 
-          <div className={styles.header}>
-            <div className={styles.headerCopy}>
-              <div className={styles.label}>Directions to</div>
-              <div className={styles.destName}>
-                <span className={styles.destEmoji}>{destination.emoji}</span>
-                {destination.name}
+          <div className={styles.endpointsHeader}>
+            <div className={styles.endpoints}>
+              <div className={styles.endpointConnector} aria-hidden>
+                <span className={`${styles.dot} ${styles.dotOrigin}`} />
+                <span className={styles.dotLine} />
+                <span className={`${styles.dot} ${styles.dotDest}`} />
+              </div>
+
+              <div className={styles.endpointRows}>
+                <button
+                  type="button"
+                  className={styles.endpointRow}
+                  onClick={() => {
+                    tapHaptic();
+                    setEditTarget('origin');
+                  }}
+                >
+                  <span className={styles.endpointLabel}>From</span>
+                  <span className={styles.endpointName}>
+                    <span className={styles.endpointEmoji}>{originDisplay.emoji}</span>
+                    {originDisplay.name}
+                  </span>
+                  <ChevronRight size={14} className={styles.chev} />
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.endpointRow}
+                  onClick={() => {
+                    tapHaptic();
+                    setEditTarget('destination');
+                  }}
+                >
+                  <span className={styles.endpointLabel}>To</span>
+                  <span className={styles.endpointName}>
+                    <span className={styles.endpointEmoji}>{destination.emoji}</span>
+                    {destination.name}
+                  </span>
+                  <ChevronRight size={14} className={styles.chev} />
+                </button>
               </div>
             </div>
-            <button
-              type="button"
-              className={styles.closeBtn}
-              aria-label="Clear route"
-              onClick={() => {
-                tapHaptic();
-                clearRoute();
-              }}
-            >
-              <X size={18} />
-            </button>
+
+            <div className={styles.headerActions}>
+              <button
+                type="button"
+                className={styles.swapBtn}
+                aria-label="Swap origin and destination"
+                onClick={() => {
+                  tapHaptic();
+                  swapEndpoints();
+                }}
+              >
+                <ArrowUpDown size={16} />
+              </button>
+              <button
+                type="button"
+                className={styles.closeBtn}
+                aria-label="Clear route"
+                onClick={() => {
+                  tapHaptic();
+                  clearRoute();
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           <div className={styles.modes}>
@@ -153,7 +239,9 @@ export function DirectionsPanel() {
               <div className={styles.errorBlock}>
                 <div className={styles.error}>
                   {looksNoRoute
-                    ? `No ${mode === 'walking' ? 'walking' : mode === 'cycling' ? 'cycling' : ''} route available between these points.`
+                    ? `No ${
+                        mode === 'walking' ? 'walking' : mode === 'cycling' ? 'cycling' : ''
+                      } route available between these points.`
                     : `Couldn't fetch route — ${error}`}
                 </div>
                 {suggestDrive && (
@@ -173,12 +261,16 @@ export function DirectionsPanel() {
             {route && !loading && (
               <>
                 <div className={styles.stat}>
-                  <div className={styles.statValue}>{formatDuration(route.durationSeconds)}</div>
+                  <div className={styles.statValue}>
+                    {formatDuration(route.durationSeconds)}
+                  </div>
                   <div className={styles.statLabel}>ETA</div>
                 </div>
                 <div className={styles.statDivider} />
                 <div className={styles.stat}>
-                  <div className={styles.statValue}>{formatDistance(route.distanceMeters)}</div>
+                  <div className={styles.statValue}>
+                    {formatDistance(route.distanceMeters)}
+                  </div>
                   <div className={styles.statLabel}>Distance</div>
                 </div>
                 <div className={styles.statDivider} />
@@ -208,8 +300,218 @@ export function DirectionsPanel() {
               })}
             </ol>
           )}
+
+          <AnimatePresence>
+            {editTarget && (
+              <EndpointSearchOverlay
+                target={editTarget}
+                userLocation={userLocation}
+                onClose={() => setEditTarget(null)}
+                onPick={(point) => {
+                  if (editTarget === 'origin') setOrigin(point);
+                  else setDestination(point);
+                  setEditTarget(null);
+                }}
+                onUseMyLocation={() => {
+                  if (editTarget === 'origin') {
+                    setOrigin(null);
+                  } else if (userLocation) {
+                    setDestination({
+                      id: 'my-location',
+                      name: 'My location',
+                      emoji: '📍',
+                      lat: userLocation.lat,
+                      lng: userLocation.lng,
+                    });
+                  }
+                  setEditTarget(null);
+                }}
+              />
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+interface OverlayProps {
+  target: 'origin' | 'destination';
+  userLocation: { lat: number; lng: number } | null;
+  onClose: () => void;
+  onPick: (point: DirectionsPoint) => void;
+  onUseMyLocation: () => void;
+}
+
+function EndpointSearchOverlay({
+  target,
+  userLocation,
+  onClose,
+  onPick,
+  onUseMyLocation,
+}: OverlayProps) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<GeocodingResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      setError(null);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setLoading(true);
+      setError(null);
+      geocodePlaces(query, userLocation ?? undefined, controller.signal)
+        .then((r) => {
+          setResults(r);
+          setLoading(false);
+        })
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+          setError(err instanceof Error ? err.message : 'Search failed');
+          setLoading(false);
+        });
+    }, DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [query, userLocation]);
+
+  return (
+    <motion.div
+      className={styles.overlay}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
+      transition={{ duration: 0.16 }}
+    >
+      <div className={styles.overlayHead}>
+        <span className={styles.overlayLabel}>
+          {target === 'origin' ? 'Start from' : 'Go to'}
+        </span>
+        <button
+          type="button"
+          className={styles.closeBtn}
+          onClick={() => {
+            tapHaptic();
+            onClose();
+          }}
+          aria-label="Close"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className={styles.overlayInputWrap}>
+        <Search size={14} className={styles.overlayLeftIcon} />
+        <input
+          ref={inputRef}
+          className={styles.overlayInput}
+          placeholder={
+            target === 'origin'
+              ? 'Start location — address, business, place'
+              : 'Destination — address, business, place'
+          }
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && results.length > 0) {
+              e.preventDefault();
+              const r = results[0];
+              onPick({
+                id: r.id,
+                name: r.name,
+                emoji: r.emoji,
+                lat: r.lat,
+                lng: r.lng,
+              });
+            }
+          }}
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+        {query && (
+          <button
+            type="button"
+            className={styles.overlayClearBtn}
+            aria-label="Clear"
+            onClick={() => setQuery('')}
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      <div className={styles.overlayList}>
+        {target === 'origin' && (
+          <button
+            type="button"
+            className={styles.overlayGps}
+            onClick={() => {
+              tapHaptic();
+              onUseMyLocation();
+            }}
+          >
+            <span className={styles.overlayGpsIcon}>
+              <Locate size={14} strokeWidth={2.2} />
+            </span>
+            <span className={styles.overlayResultText}>
+              <span className={styles.overlayResultName}>Use my current location</span>
+              <span className={styles.overlayResultSub}>
+                {userLocation ? 'Live GPS' : 'No GPS fix yet — tap to enable'}
+              </span>
+            </span>
+          </button>
+        )}
+
+        {loading && results.length === 0 && (
+          <div className={styles.overlayStatus}>
+            <div className={styles.overlaySpinner} aria-hidden /> Searching…
+          </div>
+        )}
+        {error && <div className={`${styles.overlayStatus} ${styles.overlayError}`}>{error}</div>}
+
+        {results.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            className={styles.overlayResult}
+            onClick={() => {
+              tapHaptic();
+              onPick({
+                id: r.id,
+                name: r.name,
+                emoji: r.emoji,
+                lat: r.lat,
+                lng: r.lng,
+              });
+            }}
+          >
+            <span className={styles.overlayResultEmoji}>{r.emoji}</span>
+            <span className={styles.overlayResultText}>
+              <span className={styles.overlayResultName}>{r.name}</span>
+              <span className={styles.overlayResultSub}>{r.placeName}</span>
+            </span>
+          </button>
+        ))}
+
+        {!loading && !error && results.length === 0 && query.trim().length >= 2 && (
+          <div className={styles.overlayStatus}>No matches</div>
+        )}
+      </div>
+    </motion.div>
   );
 }
