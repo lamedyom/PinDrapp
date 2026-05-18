@@ -62,7 +62,7 @@ export function PostScreen() {
     discountPercent: '',
     duration: 4,
   });
-  const [location_, setLocation] = useState('Crown Heights, Brooklyn');
+  const [location_, setLocation] = useState('Downtown Hollywood, FL');
   const [editingLocation, setEditingLocation] = useState(false);
   const [posting, setPosting] = useState(false);
   const [success, setSuccess] = useState(false);

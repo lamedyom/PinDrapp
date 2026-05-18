@@ -38,7 +38,7 @@ export function DealsScreen() {
           <p className={styles.sub}>Expires today · Near you</p>
         </div>
         <div className={styles.location}>
-          <MapPin size={12} /> Brooklyn, NY
+          <MapPin size={12} /> Hollywood, FL
         </div>
       </header>
 

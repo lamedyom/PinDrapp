@@ -73,55 +73,60 @@ interface MapState {
   setSearchedLocation: (loc: SearchedLocation | null) => void;
 }
 
+// All seed locations are placed around Hollywood, FL so the app's directions,
+// save-to-map and explore features can be exercised from a Hollywood-area device.
+// Downtown Hollywood / Young Circle ≈ 26.0118, -80.1495
+// Hollywood Beach Broadwalk        ≈ 26.0170, -80.1150
+// Residential west of downtown     ≈ 26.0080, -80.1700
 const mockSavedPlaces: SavedPlace[] = [
-  { id: 'sp1', name: 'Home', emoji: '🏠', type: 'home', lat: 40.7484, lng: -73.9857 },
-  { id: 'sp2', name: 'Work', emoji: '💼', type: 'work', lat: 40.7549, lng: -73.984 },
+  { id: 'sp1', name: 'Home', emoji: '🏠', type: 'home', lat: 26.008, lng: -80.17 },
+  { id: 'sp2', name: 'Work', emoji: '💼', type: 'work', lat: 26.0118, lng: -80.149 },
   {
     id: 'sp3',
-    name: 'Prime Grill',
+    name: "GG's Waterfront",
     emoji: '🥩',
     type: 'social',
     category: 'food',
     hasDeal: false,
-    lat: 40.751,
-    lng: -73.982,
+    lat: 26.0177,
+    lng: -80.1148,
     savedAt: new Date(),
   },
   {
     id: 'sp4',
-    name: 'Green Garden',
+    name: 'Green Garden Bowls',
     emoji: '🥗',
     type: 'social',
     category: 'food',
     hasDeal: true,
-    lat: 40.749,
-    lng: -73.987,
+    lat: 26.0098,
+    lng: -80.1465,
     savedAt: new Date(),
   },
   {
     id: 'sp5',
-    name: "Rivka's Boutique",
+    name: "Hollywood Boulevard Boutique",
     emoji: '👗',
     type: 'saved',
     category: 'shopping',
     hasDeal: false,
-    lat: 40.753,
-    lng: -73.98,
+    lat: 26.0125,
+    lng: -80.1502,
     savedAt: new Date(),
   },
 ];
 
 const mockExplorePlaces: ExploreBusiness[] = [
-  { id: 'e1', name: 'Solo Pizza', emoji: '🍕', category: 'Food', distanceMiles: 0.4, hasDeal: false, lat: 40.7505, lng: -73.9845 },
-  { id: 'e2', name: 'Challah Co.', emoji: '🥐', category: 'Bakery', distanceMiles: 0.8, hasDeal: true, lat: 40.7478, lng: -73.988 },
-  { id: 'e3', name: 'Café Beit', emoji: '☕', category: 'Coffee', distanceMiles: 0.9, hasDeal: false, lat: 40.752, lng: -73.98 },
-  { id: 'e4', name: 'The Kosher Butcher', emoji: '🔪', category: 'Market', distanceMiles: 1.1, hasDeal: false, lat: 40.746, lng: -73.991 },
-  { id: 'e5', name: 'Vino & Vine', emoji: '🍷', category: 'Wine', distanceMiles: 1.3, hasDeal: true, lat: 40.7535, lng: -73.978 },
-  { id: 'e6', name: 'Sushi Levy', emoji: '🍣', category: 'Japanese', distanceMiles: 1.5, hasDeal: false, lat: 40.7555, lng: -73.976 },
-  { id: 'e7', name: 'Gold & Gems', emoji: '💎', category: 'Jewelry', distanceMiles: 1.8, hasDeal: false, lat: 40.7445, lng: -73.993 },
-  { id: 'e8', name: 'Fresh Pressery', emoji: '🥤', category: 'Juice Bar', distanceMiles: 2.0, hasDeal: true, lat: 40.757, lng: -73.974 },
-  { id: 'e9', name: 'Books & More', emoji: '📚', category: 'Books', distanceMiles: 2.2, hasDeal: false, lat: 40.743, lng: -73.995 },
-  { id: 'e10', name: 'Tech Repair Hub', emoji: '📱', category: 'Electronics', distanceMiles: 2.5, hasDeal: false, lat: 40.759, lng: -73.972 },
+  { id: 'e1', name: 'Solo Pizza Napoletana', emoji: '🍕', category: 'Food', distanceMiles: 0.3, hasDeal: false, lat: 26.0107, lng: -80.148 },
+  { id: 'e2', name: 'Sage Bagel & Deli', emoji: '🥐', category: 'Bakery', distanceMiles: 0.6, hasDeal: true, lat: 26.015, lng: -80.152 },
+  { id: 'e3', name: 'Tap 42 Hollywood', emoji: '☕', category: 'Coffee', distanceMiles: 0.4, hasDeal: false, lat: 26.0095, lng: -80.1455 },
+  { id: 'e4', name: 'Hollywood Meat Market', emoji: '🔪', category: 'Market', distanceMiles: 0.9, hasDeal: false, lat: 26.008, lng: -80.1545 },
+  { id: 'e5', name: 'Vino & Vine Wine Bar', emoji: '🍷', category: 'Wine', distanceMiles: 0.5, hasDeal: true, lat: 26.0135, lng: -80.145 },
+  { id: 'e6', name: 'Sushi Song Hollywood', emoji: '🍣', category: 'Japanese', distanceMiles: 0.8, hasDeal: false, lat: 26.0162, lng: -80.1395 },
+  { id: 'e7', name: 'Hollywood Gold & Gems', emoji: '💎', category: 'Jewelry', distanceMiles: 0.2, hasDeal: false, lat: 26.0118, lng: -80.1505 },
+  { id: 'e8', name: 'The Juice Lab Broadwalk', emoji: '🥤', category: 'Juice Bar', distanceMiles: 1.7, hasDeal: true, lat: 26.0173, lng: -80.1153 },
+  { id: 'e9', name: 'Books & Books Hollywood', emoji: '📚', category: 'Books', distanceMiles: 0.4, hasDeal: false, lat: 26.0089, lng: -80.148 },
+  { id: 'e10', name: 'Hollywood Tech Repair', emoji: '📱', category: 'Electronics', distanceMiles: 1.1, hasDeal: false, lat: 26.0058, lng: -80.1525 },
 ];
 
 export const useMapStore = create<MapState>()(
