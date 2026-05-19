@@ -74,6 +74,8 @@ interface MapState {
   addSavedPlace: (place: Omit<SavedPlace, 'savedAt'>) => void;
   removeSavedPlace: (id: string) => void;
   updateSavedPlace: (id: string, partial: Partial<Omit<SavedPlace, 'id'>>) => void;
+  hydrateSaved: (places: SavedPlace[]) => void;
+  hydrateExplore: (places: ExploreBusiness[]) => void;
   setSearchedLocation: (loc: SearchedLocation | null) => void;
 }
 
@@ -236,6 +238,20 @@ export const useMapStore = create<MapState>()(
         // Don't allow callers to change identity/type permanence — `type`
         // CAN be overridden (e.g. saved → home), but `id` stays put.
         s.savedPlaces[idx] = { ...existing, ...partial, id: existing.id };
+      }),
+
+    hydrateSaved: (places) =>
+      set((s) => {
+        // Keep Home/Work tiles seeded from mock — they're user-personal
+        // anchors not yet modeled as a separate table. Replace the rest
+        // (the social/saved ones) with what Supabase says.
+        const permanent = s.savedPlaces.filter((p) => p.type === 'home' || p.type === 'work');
+        s.savedPlaces = [...permanent, ...places];
+      }),
+
+    hydrateExplore: (places) =>
+      set((s) => {
+        if (places.length > 0) s.explorePlaces = places;
       }),
   })),
 );

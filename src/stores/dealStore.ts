@@ -47,6 +47,7 @@ interface DealState {
   processPayment: () => Promise<void>;
   addDeal: (deal: Deal) => void;
   resetCheckout: () => void;
+  hydrate: (deals: Deal[]) => void;
 }
 
 const now = Date.now();
@@ -215,6 +216,11 @@ export const useDealStore = create<DealState>()(
     addDeal: (deal) =>
       set((s) => {
         s.deals.unshift(deal);
+      }),
+
+    hydrate: (deals) =>
+      set((s) => {
+        s.deals = deals;
       }),
   })),
 );

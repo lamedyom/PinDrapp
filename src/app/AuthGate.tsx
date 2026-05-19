@@ -6,6 +6,7 @@ import { BrandMark } from '../components/layout/BrandMark';
 import { UserTypeScreen } from '../features/auth/UserTypeScreen';
 import { BusinessOnboarding } from '../features/auth/BusinessOnboarding';
 import { ConsumerOnboarding } from '../features/auth/ConsumerOnboarding';
+import { useBootstrap } from '../hooks/useBootstrap';
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -30,6 +31,10 @@ export function AuthGate({ children }: AuthGateProps) {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Fetches feed, deals, explore, and saved-places from Supabase whenever a
+  // user is authenticated. No-op in 'disabled' (no Supabase) mode.
+  useBootstrap();
 
   // When unauthenticated, push to splash unless already on an /auth/* route.
   useEffect(() => {

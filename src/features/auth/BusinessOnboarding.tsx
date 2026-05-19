@@ -5,6 +5,7 @@ import { useDropzone } from 'react-dropzone';
 import { ArrowLeft, ArrowRight, Camera, MapPin, Sparkles, Video } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { geocodePlaces, type GeocodingResult } from '../../lib/geocoding';
+import { uploadAvatar } from '../../lib/supabaseApi';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './BusinessOnboarding.module.css';
 
@@ -65,9 +66,18 @@ export function BusinessOnboarding() {
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'image/*': [] },
     multiple: false,
-    onDrop: (files) => {
+    onDrop: async (files) => {
       const f = files[0];
-      if (f) setAvatarUrl(URL.createObjectURL(f));
+      if (!f) return;
+      // Show the local preview immediately, then swap to the storage URL
+      // once the upload finishes.
+      setAvatarUrl(URL.createObjectURL(f));
+      try {
+        const remote = await uploadAvatar(f);
+        if (remote) setAvatarUrl(remote);
+      } catch {
+        // Keep the local preview if upload fails (e.g. Supabase not configured).
+      }
     },
   });
 

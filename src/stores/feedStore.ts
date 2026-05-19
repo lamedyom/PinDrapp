@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { useMapStore } from './mapStore';
 import { showToast } from './toastStore';
+import { useAuthStore } from './authStore';
+import { savePlaceFor, togglePostLike } from '../lib/supabaseApi';
 
 export type FeedTab = 'updates' | 'deals' | 'nearby' | 'ai';
 
@@ -34,6 +36,7 @@ interface FeedState {
   pinPost: (id: string) => void;
   setTab: (tab: FeedTab) => void;
   prependPost: (post: FeedPost) => void;
+  hydrate: (posts: FeedPost[]) => void;
 }
 
 // Hollywood, FL feed seed — business names and coordinates match the same
@@ -153,18 +156,29 @@ export const useFeedStore = create<FeedState>()(
     posts: mockPosts,
     activeTab: 'updates',
 
-    likePost: (id) =>
+    likePost: (id) => {
+      let nextLiked = false;
       set((s) => {
         const post = s.posts.find((p) => p.id === id);
         if (!post) return;
         if (post.isLiked) {
           post.isLiked = false;
           post.likeCount = Math.max(0, post.likeCount - 1);
+          nextLiked = false;
         } else {
           post.isLiked = true;
           post.likeCount += 1;
+          nextLiked = true;
         }
-      }),
+      });
+      // Persist to Supabase if we have an authed session + profile.
+      const auth = useAuthStore.getState();
+      if (auth.profile) {
+        void togglePostLike(auth.profile.id, id, nextLiked).catch(() => {
+          /* keep optimistic UI; user will see eventual consistency */
+        });
+      }
+    },
 
     pinPost: (id) => {
       const post = get().posts.find((p) => p.id === id);
@@ -183,6 +197,11 @@ export const useFeedStore = create<FeedState>()(
         lat: post.lat ?? 40.7505,
         lng: post.lng ?? -73.9845,
       });
+      // Persist saved_places row when authed.
+      const auth = useAuthStore.getState();
+      if (auth.profile && post.businessId) {
+        void savePlaceFor(auth.profile.id, post.businessId).catch(() => {});
+      }
       showToast(`${post.businessName} saved to your map`);
     },
 
@@ -194,6 +213,11 @@ export const useFeedStore = create<FeedState>()(
     prependPost: (post) =>
       set((s) => {
         s.posts.unshift(post);
+      }),
+
+    hydrate: (posts) =>
+      set((s) => {
+        s.posts = posts;
       }),
   })),
 );

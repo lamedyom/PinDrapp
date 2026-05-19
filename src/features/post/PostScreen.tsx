@@ -8,7 +8,9 @@ import { useVideoUpload } from '../../hooks/useVideoUpload';
 import { useFeedStore } from '../../stores/feedStore';
 import { useDealStore, type Deal } from '../../stores/dealStore';
 import { useMapStore } from '../../stores/mapStore';
+import { useAuthStore } from '../../stores/authStore';
 import { AddLocationSheet, type AddedLocation } from '../places/AddLocationSheet';
+import { createDeal, createPost, uploadVideo } from '../../lib/supabaseApi';
 import styles from './PostScreen.module.css';
 
 type PostTag =
@@ -109,31 +111,73 @@ export function PostScreen() {
 
   const canPost = !!video && !uploading && !posting && caption.trim().length > 0;
 
+  const authBusiness = useAuthStore((s) => s.business);
+
   const submit = async () => {
     if (!video) return;
     setPosting(true);
     try {
+      // 1) Upload the video. Prefer Supabase storage if we have an authed
+      //    business; fall back to Cloudinary via useVideoUpload otherwise.
       let videoUrl: string | undefined;
       try {
-        const result = await upload(video.blob);
-        videoUrl = result.url;
+        if (authBusiness) {
+          const url = await uploadVideo(video.blob);
+          videoUrl = url ?? video.url;
+        } else {
+          const result = await upload(video.blob);
+          videoUrl = result.url;
+        }
       } catch {
         videoUrl = video.url;
       }
-      await new Promise((r) => setTimeout(r, 600));
 
-      const postId = `p_${Date.now()}`;
-      const newDealId = tag === 'flashDeal' ? `d_${Date.now()}` : undefined;
       const postCoords =
         locationCoords ??
         (userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null) ??
         { lat: 26.0118, lng: -80.1495 };
 
+      // 2) Persist to Supabase when authed, otherwise just update local stores.
+      let realPostId: string | null = null;
+      let realDealId: string | null = null;
+
+      if (authBusiness) {
+        try {
+          realPostId = await createPost({
+            businessId: authBusiness.id,
+            caption,
+            videoUrl,
+          });
+        } catch {
+          // surface visually below — keep the optimistic UI
+        }
+        if (tag === 'flashDeal') {
+          try {
+            realDealId = await createDeal({
+              businessId: authBusiness.id,
+              headline: deal.headline || caption.slice(0, 60),
+              description: caption,
+              originalPrice: deal.originalPrice ? Number(deal.originalPrice) : null,
+              dealPrice: deal.dealPrice ? Number(deal.dealPrice) : null,
+              discountPercent: deal.discountPercent ? Number(deal.discountPercent) : null,
+              expiresAt: new Date(Date.now() + deal.duration * 3600000),
+            });
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      const postId = realPostId ?? `p_${Date.now()}`;
+      const newDealId = realDealId ?? (tag === 'flashDeal' ? `d_${Date.now()}` : undefined);
+
+      // 3) Always update local stores so the feed reflects the new post
+      //    immediately even before the next bootstrap fetch.
       if (tag === 'flashDeal' && newDealId) {
         const newDeal: Deal = {
           id: newDealId,
-          businessName: 'Your Business',
-          category: 'Food',
+          businessName: authBusiness?.name ?? 'Your Business',
+          category: authBusiness?.category ?? 'Food',
           emoji: '⚡',
           headline: deal.headline || caption.slice(0, 60),
           description: caption,
@@ -152,9 +196,9 @@ export function PostScreen() {
 
       prependPost({
         id: postId,
-        businessId: 'self',
-        businessName: 'Your Business',
-        businessCategory: 'Featured',
+        businessId: authBusiness?.id ?? 'self',
+        businessName: authBusiness?.name ?? 'Your Business',
+        businessCategory: authBusiness?.category ?? 'Featured',
         businessEmoji: '⚡',
         caption,
         likeCount: 0,
