@@ -1,24 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowDown,
-  ArrowUp,
   ArrowUpDown,
-  ArrowUpLeft,
-  ArrowUpRight,
   Bike,
   Car,
   ChevronRight,
-  CornerDownLeft,
-  CornerDownRight,
-  CornerUpLeft,
-  CornerUpRight,
-  Flag,
   Footprints,
   Locate,
-  MapPin,
   Navigation2,
-  RotateCw,
   Search,
   Square,
   TrafficCone,
@@ -30,9 +19,9 @@ import {
   fetchRoute,
   formatDistance,
   formatDuration,
-  type RouteStep,
   type TravelMode,
 } from '../../lib/directions';
+import { maneuverIcon } from './maneuverIcon';
 import { geocodePlaces, type GeocodingResult } from '../../lib/geocoding';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './DirectionsPanel.module.css';
@@ -45,25 +34,6 @@ const MODES: { id: TravelMode; label: string; Icon: typeof Footprints }[] = [
 ];
 
 const DEBOUNCE_MS = 220;
-
-function maneuverIcon(step: RouteStep): typeof ArrowUp {
-  const t = step.maneuverType;
-  const m = step.maneuverModifier ?? '';
-  if (t === 'depart') return MapPin;
-  if (t === 'arrive') return Flag;
-  if (t === 'roundabout' || t === 'rotary' || t === 'roundabout turn') return RotateCw;
-  if (m.includes('uturn')) return RotateCw;
-  if (m.includes('sharp left')) return CornerUpLeft;
-  if (m.includes('sharp right')) return CornerUpRight;
-  if (m.includes('slight left')) return ArrowUpLeft;
-  if (m.includes('slight right')) return ArrowUpRight;
-  if (m === 'left') return CornerDownLeft;
-  if (m === 'right') return CornerDownRight;
-  if (m === 'straight') return ArrowUp;
-  if (t === 'continue') return ArrowUp;
-  if (t === 'end of road') return ArrowDown;
-  return ArrowUp;
-}
 
 type EditTarget = 'origin' | 'destination' | null;
 

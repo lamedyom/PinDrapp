@@ -4,3 +4,10 @@
   background: var(--bg-page);
   overflow: hidden;
 }
+
+/* During active navigation the screen takes over the entire shell area
+ * (the AppShell hides the BottomNav as well via useDirectionsStore.isNavigating). */
+.screenNav {
+  /* No additional layout changes — the nav top/bottom bars overlay the map
+   * at z-index 200, and the bottom-nav is hidden at the shell level. */
+}

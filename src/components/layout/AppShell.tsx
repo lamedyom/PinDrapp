@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { TopBar } from './TopBar';
+import { useDirectionsStore } from '../../stores/directionsStore';
 import styles from './AppShell.module.css';
 
 interface AppShellProps {
@@ -21,6 +22,11 @@ export function AppShell({ children }: AppShellProps) {
   const hideTopBar = location.pathname === '/map';
   const noScroll = location.pathname === '/map';
 
+  // While active turn-by-turn navigation is running, hide the bottom nav
+  // so the map can take over the full screen (Waze / Google Maps style).
+  const isNavigating = useDirectionsStore((s) => s.isNavigating);
+  const hideBottomNav = isNavigating && location.pathname === '/map';
+
   return (
     <div className={styles.outer}>
       <div className={styles.column}>
@@ -28,7 +34,7 @@ export function AppShell({ children }: AppShellProps) {
         <main className={noScroll ? styles.mainNoScroll : styles.main}>
           {children ?? <Outlet />}
         </main>
-        <BottomNav />
+        {!hideBottomNav && <BottomNav />}
       </div>
     </div>
   );

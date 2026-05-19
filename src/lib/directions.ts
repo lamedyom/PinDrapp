@@ -13,6 +13,8 @@ export interface RouteStep {
   durationSeconds: number;
   maneuverType: string;
   maneuverModifier?: string;
+  /** [lng, lat] of where the maneuver happens. Used by nav-mode camera. */
+  maneuverLocation?: [number, number];
 }
 
 export interface RouteResult {
@@ -24,7 +26,12 @@ export interface RouteResult {
 }
 
 interface MapboxStep {
-  maneuver: { instruction: string; type: string; modifier?: string };
+  maneuver: {
+    instruction: string;
+    type: string;
+    modifier?: string;
+    location?: [number, number];
+  };
   distance: number;
   duration: number;
 }
@@ -127,6 +134,7 @@ export async function fetchRoute(
         durationSeconds: s.duration,
         maneuverType: s.maneuver.type,
         maneuverModifier: s.maneuver.modifier,
+        maneuverLocation: s.maneuver.location,
       })),
     ),
     bounds: [
@@ -141,6 +149,23 @@ export function formatDistance(meters: number): string {
   const km = meters / 1000;
   const miles = km * 0.621371;
   return miles < 0.1 ? `${(km).toFixed(2)} km` : `${miles.toFixed(1)} mi`;
+}
+
+export function remainingFromStep(
+  route: RouteResult,
+  fromStepIndex: number,
+): { distanceMeters: number; durationSeconds: number } {
+  const start = Math.max(0, Math.min(route.steps.length - 1, fromStepIndex));
+  const rest = route.steps.slice(start);
+  return {
+    distanceMeters: rest.reduce((a, s) => a + s.distanceMeters, 0),
+    durationSeconds: rest.reduce((a, s) => a + s.durationSeconds, 0),
+  };
+}
+
+export function etaTime(durationSeconds: number, now: Date = new Date()): string {
+  const arrival = new Date(now.getTime() + durationSeconds * 1000);
+  return arrival.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 export function formatDuration(seconds: number): string {

@@ -14,10 +14,16 @@ import { MAPBOX_TOKEN, DEFAULT_CENTER, DEFAULT_ZOOM, isUsingDemoToken } from '..
 import { useMapStore } from '../../stores/mapStore';
 import { useDirectionsStore, MAPBOX_STYLES } from '../../stores/directionsStore';
 import { useGeolocation } from '../../hooks/useGeolocation';
+import { bearingTo } from '../../lib/geo';
 import { SavedPin, ExplorePin, UserLocationDot } from './Pins';
 import { PinPopup } from './PinPopup';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './PindrappMap.module.css';
+
+const NAV_PITCH = 60;
+const NAV_ZOOM = 17;
+const OVERVIEW_PITCH = 0;
+const OVERVIEW_ZOOM = 13;
 
 // Outer glow halo around the route — wider, low opacity, slight blur.
 const ROUTE_GLOW: LineLayerSpecification = {
@@ -78,6 +84,8 @@ export function PindrappMap() {
   const routeLoading = useDirectionsStore((s) => s.loading);
   const mapStyle = useDirectionsStore((s) => s.mapStyle);
   const toggleMapStyle = useDirectionsStore((s) => s.toggleMapStyle);
+  const isNavigating = useDirectionsStore((s) => s.isNavigating);
+  const currentStepIndex = useDirectionsStore((s) => s.currentStepIndex);
 
   const geo = useGeolocation({ watch: true });
 
@@ -110,14 +118,94 @@ export function PindrappMap() {
     });
   }, [flyTarget, mapReady]);
 
-  // Fit bounds when a new route arrives.
+  // Fit bounds when a new route arrives — but only in overview mode. In
+  // active navigation we keep the camera glued to the user via easeTo.
   useEffect(() => {
-    if (!route || !mapReady) return;
+    if (!route || !mapReady || isNavigating) return;
     mapRef.current?.fitBounds(route.bounds, {
       padding: { top: 220, bottom: 320, left: 40, right: 40 },
       duration: 900,
     });
-  }, [route, mapReady]);
+  }, [route, mapReady, isNavigating]);
+
+  // Entering / exiting navigation mode — drives the pitched 3D camera.
+  useEffect(() => {
+    if (!mapReady) return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (isNavigating) {
+      // Compute an initial bearing from the user toward the next maneuver
+      // (or the first route polyline segment if no GPS yet) so the map
+      // faces forward immediately.
+      const startCoord =
+        userLocation
+          ? { lat: userLocation.lat, lng: userLocation.lng }
+          : route?.geometry.coordinates[0]
+            ? {
+                lat: route.geometry.coordinates[0][1],
+                lng: route.geometry.coordinates[0][0],
+              }
+            : null;
+      const nextManeuver =
+        route?.steps[currentStepIndex + 1]?.maneuverLocation ??
+        (route ? route.geometry.coordinates.at(-1) : null);
+      const initialBearing =
+        startCoord && nextManeuver
+          ? bearingTo(startCoord, { lat: nextManeuver[1], lng: nextManeuver[0] })
+          : 0;
+      map.easeTo({
+        center: startCoord ? [startCoord.lng, startCoord.lat] : undefined,
+        pitch: NAV_PITCH,
+        zoom: NAV_ZOOM,
+        bearing: initialBearing,
+        duration: 1200,
+      });
+    } else {
+      map.easeTo({
+        pitch: OVERVIEW_PITCH,
+        zoom: OVERVIEW_ZOOM,
+        bearing: 0,
+        duration: 900,
+      });
+    }
+    // Only re-run when navigation flag flips. The follow-user effect below
+    // handles per-GPS-tick updates while navigating.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNavigating, mapReady]);
+
+  // While navigating, follow the user — recenter and re-orient on every
+  // GPS update or step advance. Uses device heading when available, else
+  // bearing-from-user-to-next-maneuver.
+  useEffect(() => {
+    if (!isNavigating || !mapReady || !userLocation) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    let bearing = geo.coords?.heading ?? null;
+    if (bearing == null || Number.isNaN(bearing)) {
+      const next =
+        route?.steps[currentStepIndex + 1]?.maneuverLocation ??
+        (route ? route.geometry.coordinates.at(-1) : null);
+      if (next) {
+        bearing = bearingTo(userLocation, { lat: next[1], lng: next[0] });
+      }
+    }
+    map.easeTo({
+      center: [userLocation.lng, userLocation.lat],
+      bearing: bearing ?? 0,
+      pitch: NAV_PITCH,
+      zoom: NAV_ZOOM,
+      duration: 600,
+    });
+  }, [
+    isNavigating,
+    mapReady,
+    userLocation?.lat,
+    userLocation?.lng,
+    currentStepIndex,
+    geo.coords?.heading,
+    route,
+  ]);
 
   // Pulse the route line opacity while the directions request is in flight.
   useEffect(() => {
@@ -229,7 +317,9 @@ export function PindrappMap() {
         onStyleData={() => setMapReady(true)}
         onClick={clearPin}
       >
-        <NavigationControl position="top-right" showCompass showZoom visualizePitch />
+        {!isNavigating && (
+          <NavigationControl position="top-right" showCompass showZoom visualizePitch />
+        )}
 
         {renderedGeometry && (
           <Source
@@ -308,41 +398,45 @@ export function PindrappMap() {
           ))}
       </Map>
 
-      <button
-        type="button"
-        className={styles.styleBtn}
-        onClick={() => {
-          tapHaptic();
-          toggleMapStyle();
-        }}
-        aria-label={`Switch to ${mapStyle === 'streets' ? 'satellite' : 'streets'} view`}
-      >
-        <Layers size={18} />
-        <span className={styles.styleBtnLabel}>
-          {mapStyle === 'streets' ? 'Satellite' : 'Streets'}
-        </span>
-      </button>
+      {!isNavigating && (
+        <>
+          <button
+            type="button"
+            className={styles.styleBtn}
+            onClick={() => {
+              tapHaptic();
+              toggleMapStyle();
+            }}
+            aria-label={`Switch to ${mapStyle === 'streets' ? 'satellite' : 'streets'} view`}
+          >
+            <Layers size={18} />
+            <span className={styles.styleBtnLabel}>
+              {mapStyle === 'streets' ? 'Satellite' : 'Streets'}
+            </span>
+          </button>
 
-      <button
-        type="button"
-        className={styles.findMeBtn}
-        onClick={handleFindMe}
-        aria-label="Find my location"
-      >
-        {userLocation ? <LocateFixed size={20} /> : <Locate size={20} />}
-      </button>
+          <button
+            type="button"
+            className={styles.findMeBtn}
+            onClick={handleFindMe}
+            aria-label="Find my location"
+          >
+            {userLocation ? <LocateFixed size={20} /> : <Locate size={20} />}
+          </button>
 
-      {isUsingDemoToken() && (
-        <div className={styles.demoHint}>
-          <Search size={10} /> Demo Mapbox token — set{' '}
-          <code>VITE_MAPBOX_TOKEN</code> for production
-        </div>
-      )}
+          {isUsingDemoToken() && (
+            <div className={styles.demoHint}>
+              <Search size={10} /> Demo Mapbox token — set{' '}
+              <code>VITE_MAPBOX_TOKEN</code> for production
+            </div>
+          )}
 
-      {activePopupId && (
-        <div className={styles.popupHost}>
-          <PinPopup id={activePopupId} />
-        </div>
+          {activePopupId && (
+            <div className={styles.popupHost}>
+              <PinPopup id={activePopupId} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
