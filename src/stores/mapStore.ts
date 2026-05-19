@@ -11,6 +11,8 @@ export interface SavedPlace {
   type: SavedPlaceType;
   category?: string;
   hasDeal?: boolean;
+  /** Full geocoded address — populated when the user picks a place via search. */
+  placeName?: string;
   lat: number;
   lng: number;
   savedAt?: Date;
@@ -71,6 +73,7 @@ interface MapState {
   flyToCoords: (lat: number, lng: number, zoom?: number) => void;
   addSavedPlace: (place: Omit<SavedPlace, 'savedAt'>) => void;
   removeSavedPlace: (id: string) => void;
+  updateSavedPlace: (id: string, partial: Partial<Omit<SavedPlace, 'id'>>) => void;
   setSearchedLocation: (loc: SearchedLocation | null) => void;
 }
 
@@ -223,6 +226,16 @@ export const useMapStore = create<MapState>()(
           s.selectedPinId = null;
           s.activePopupId = null;
         }
+      }),
+
+    updateSavedPlace: (id, partial) =>
+      set((s) => {
+        const idx = s.savedPlaces.findIndex((p) => p.id === id);
+        if (idx === -1) return;
+        const existing = s.savedPlaces[idx];
+        // Don't allow callers to change identity/type permanence — `type`
+        // CAN be overridden (e.g. saved → home), but `id` stays put.
+        s.savedPlaces[idx] = { ...existing, ...partial, id: existing.id };
       }),
   })),
 );

@@ -30,6 +30,19 @@ interface AddLocationSheetProps {
   saveLabel?: string;
   /** Hide the type/emoji form (use when picking a one-shot location, like for a post). */
   pickOnly?: boolean;
+  /**
+   * When provided, the sheet opens in edit mode: form pre-filled with these
+   * values, search stage is hidden until the user taps "Change address".
+   * Save calls onSave with the (possibly new) address details.
+   */
+  editing?: {
+    name: string;
+    emoji: string;
+    type: AddLocationKind;
+    lat: number;
+    lng: number;
+    placeName?: string;
+  };
 }
 
 const TYPES: { id: AddLocationKind; label: string; emoji: string; Icon: typeof Home }[] = [
@@ -52,6 +65,7 @@ export function AddLocationSheet({
   title = 'Add a location',
   saveLabel = 'Save place',
   pickOnly = false,
+  editing,
 }: AddLocationSheetProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GeocodingResult[]>([]);
@@ -77,10 +91,27 @@ export function AddLocationSheet({
       setSearchError(null);
       return;
     }
-    // Focus input after sheet slide-in
+    if (editing) {
+      // Edit mode: pre-fill the form from the existing place. Skip the
+      // search stage — user can tap "Change address" to re-enter it.
+      setPicked({
+        id: `editing-${editing.name}`,
+        name: editing.name,
+        placeName: editing.placeName ?? `${editing.lat.toFixed(5)}, ${editing.lng.toFixed(5)}`,
+        types: [],
+        lat: editing.lat,
+        lng: editing.lng,
+        emoji: editing.emoji,
+      });
+      setName(editing.name);
+      setEmoji(editing.emoji);
+      setType(editing.type);
+      return;
+    }
+    // Add mode: focus input after sheet slide-in
     const id = window.setTimeout(() => inputRef.current?.focus(), 240);
     return () => window.clearTimeout(id);
-  }, [open]);
+  }, [open, editing]);
 
   useEffect(() => {
     if (!open) return;
@@ -112,8 +143,12 @@ export function AddLocationSheet({
   const pick = (r: GeocodingResult) => {
     tapHaptic();
     setPicked(r);
-    setName(r.name);
-    setEmoji(r.emoji);
+    // In edit mode we only update the address — keep the user's
+    // existing name and emoji. In add mode, seed them from the result.
+    if (!editing) {
+      setName(r.name);
+      setEmoji(r.emoji);
+    }
     setQuery('');
     setResults([]);
   };
@@ -241,10 +276,10 @@ export function AddLocationSheet({
                   className={styles.changeBtn}
                   onClick={() => {
                     setPicked(null);
-                    setQuery(picked.name);
+                    setQuery(editing ? '' : picked.name);
                   }}
                 >
-                  Change
+                  {editing ? 'Change address' : 'Change'}
                 </button>
               </div>
 
