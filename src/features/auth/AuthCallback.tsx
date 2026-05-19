@@ -29,9 +29,13 @@ export function AuthCallback() {
   }, [navigate]);
 
   useEffect(() => {
-    if (stage !== 'loading' && stage !== 'unauthenticated') {
-      navigate('/', { replace: true });
-    }
+    if (stage === 'loading' || stage === 'unauthenticated') return;
+    // Existing user → straight to the feed.
+    // New user (no userType picked yet, or business/consumer onboarding not
+    // finished) → /onboarding. AuthGate handles which overlay to show.
+    const target =
+      stage === 'authenticated' ? '/feed' : stage === 'disabled' ? '/feed' : '/onboarding';
+    navigate(target, { replace: true });
   }, [stage, navigate]);
 
   return (

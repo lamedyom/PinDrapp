@@ -43,9 +43,30 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }, [stage, location.pathname, navigate]);
 
-  // When fully authenticated and currently on an /auth/* route, send to feed.
+  // In any onboarding stage, keep the URL on /onboarding so it matches the
+  // visible overlay. AuthGate returns the overlay component below; the URL
+  // is just for user/back-button clarity.
   useEffect(() => {
-    if (stage === 'authenticated' && location.pathname.startsWith('/auth')) {
+    const inOnboarding =
+      stage === 'pickingType' ||
+      stage === 'onboardingBusiness' ||
+      stage === 'onboardingConsumer';
+    if (
+      inOnboarding &&
+      location.pathname !== '/onboarding' &&
+      !location.pathname.startsWith('/auth')
+    ) {
+      navigate('/onboarding', { replace: true });
+    }
+  }, [stage, location.pathname, navigate]);
+
+  // When fully authenticated and currently on an /auth/* or /onboarding route,
+  // send to feed.
+  useEffect(() => {
+    if (
+      stage === 'authenticated' &&
+      (location.pathname.startsWith('/auth') || location.pathname === '/onboarding')
+    ) {
       navigate('/feed', { replace: true });
     }
   }, [stage, location.pathname, navigate]);

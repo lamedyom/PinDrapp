@@ -45,6 +45,13 @@ export function AppRoutes() {
         <Route path="/auth/phone" element={<PhoneAuth />} />
         <Route path="/auth/email" element={<EmailAuth />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        {/*
+         * /onboarding is a URL-visible placeholder for users who have just
+         * signed up but haven't completed setup. AuthGate detects this and
+         * overlays UserTypeScreen / BusinessOnboarding / ConsumerOnboarding
+         * — so the rendered content here doesn't matter (it's covered).
+         */}
+        <Route path="/onboarding" element={<div style={{ background: 'var(--bg-page)', minHeight: '100vh' }} />} />
 
         {/* Main app — wrapped in shell */}
         <Route path="/" element={<Navigate to="/feed" replace />} />
