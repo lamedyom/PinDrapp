@@ -26,6 +26,10 @@ interface DirectionsState {
   loading: boolean;
   error: string | null;
   mapStyle: MapStyleKey;
+  /** True after the user taps "Start" — panel switches into nav mode. */
+  isNavigating: boolean;
+  /** Index of the active turn step while navigating. */
+  currentStepIndex: number;
 
   setDestination: (dest: DirectionsPoint | null) => void;
   setOrigin: (origin: DirectionsPoint | null) => void;
@@ -37,6 +41,10 @@ interface DirectionsState {
   clearRoute: () => void;
   toggleMapStyle: () => void;
   setMapStyle: (style: MapStyleKey) => void;
+  startNavigation: () => void;
+  stopNavigation: () => void;
+  setCurrentStep: (index: number) => void;
+  advanceStep: () => void;
 }
 
 export const useDirectionsStore = create<DirectionsState>()(
@@ -48,10 +56,15 @@ export const useDirectionsStore = create<DirectionsState>()(
     loading: false,
     error: null,
     mapStyle: 'streets',
+    isNavigating: false,
+    currentStepIndex: 0,
 
     setDestination: (dest) =>
       set((s) => {
         s.destination = dest;
+        // Any change in destination starts fresh — exit nav mode.
+        s.isNavigating = false;
+        s.currentStepIndex = 0;
         if (!dest) {
           s.route = null;
           s.loading = false;
@@ -92,6 +105,8 @@ export const useDirectionsStore = create<DirectionsState>()(
         s.origin = { id: d.id, name: d.name, emoji: d.emoji, lat: d.lat, lng: d.lng };
         s.destination = resolvedOrigin;
         s.route = null;
+        s.isNavigating = false;
+        s.currentStepIndex = 0;
       });
     },
     setMode: (mode) =>
@@ -101,6 +116,10 @@ export const useDirectionsStore = create<DirectionsState>()(
     setRoute: (route) =>
       set((s) => {
         s.route = route;
+        // A fresh route always starts at step 0; exit nav if it was running
+        // since the underlying steps may have changed (mode switch, etc).
+        s.currentStepIndex = 0;
+        if (!route) s.isNavigating = false;
       }),
     setLoading: (loading) =>
       set((s) => {
@@ -117,6 +136,8 @@ export const useDirectionsStore = create<DirectionsState>()(
         s.route = null;
         s.loading = false;
         s.error = null;
+        s.isNavigating = false;
+        s.currentStepIndex = 0;
       }),
     toggleMapStyle: () =>
       set((s) => {
@@ -125,6 +146,29 @@ export const useDirectionsStore = create<DirectionsState>()(
     setMapStyle: (style) =>
       set((s) => {
         s.mapStyle = style;
+      }),
+
+    startNavigation: () =>
+      set((s) => {
+        if (!s.route) return;
+        s.isNavigating = true;
+        s.currentStepIndex = 0;
+      }),
+    stopNavigation: () =>
+      set((s) => {
+        s.isNavigating = false;
+        s.currentStepIndex = 0;
+      }),
+    setCurrentStep: (index) =>
+      set((s) => {
+        const max = (s.route?.steps.length ?? 1) - 1;
+        s.currentStepIndex = Math.max(0, Math.min(max, index));
+      }),
+    advanceStep: () =>
+      set((s) => {
+        if (!s.route) return;
+        const max = s.route.steps.length - 1;
+        if (s.currentStepIndex < max) s.currentStepIndex += 1;
       }),
   })),
 );

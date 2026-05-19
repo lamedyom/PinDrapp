@@ -319,6 +319,118 @@
   transform: scale(0.96);
 }
 
+.navActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.startBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: var(--orange);
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  box-shadow: 0 6px 22px rgba(255, 92, 26, 0.4);
+  transition: transform 100ms ease, box-shadow 200ms ease;
+}
+
+.startBtn:active {
+  transform: scale(0.97);
+  box-shadow: 0 3px 14px rgba(255, 92, 26, 0.32);
+}
+
+.navStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 217, 126, 0.1);
+  border: 1px solid var(--green-soft);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--green);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.navDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(0, 217, 126, 0.5);
+  animation: navPulse 1.4s ease-out infinite;
+}
+
+@keyframes navPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 217, 126, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(0, 217, 126, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 217, 126, 0);
+  }
+}
+
+.navBtns {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.nextBtn {
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: var(--orange);
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 16px rgba(255, 92, 26, 0.3);
+  transition: transform 100ms ease;
+}
+
+.nextBtn:active {
+  transform: scale(0.97);
+}
+
+.stopBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(255, 58, 58, 0.12);
+  border: 1px solid rgba(255, 58, 58, 0.3);
+  color: var(--red);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  transition: transform 100ms ease, background 120ms ease;
+}
+
+.stopBtn:active {
+  transform: scale(0.96);
+  background: rgba(255, 58, 58, 0.22);
+}
+
 .steps {
   list-style: none;
   margin: 0;
@@ -345,6 +457,35 @@
 
 .step:last-child {
   border-bottom: none;
+}
+
+.stepActive {
+  background: rgba(255, 92, 26, 0.1);
+  border-radius: 10px;
+  padding: 10px 10px;
+  margin: 4px -10px;
+  border-bottom-color: transparent;
+  box-shadow: inset 3px 0 0 var(--orange);
+}
+
+.stepActive .stepText {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.stepActive .stepIcon {
+  background: var(--orange);
+  color: #fff;
+}
+
+.stepPast {
+  opacity: 0.45;
+}
+
+.stepPast .stepText {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-decoration-thickness: 1px;
 }
 
 .stepIcon {

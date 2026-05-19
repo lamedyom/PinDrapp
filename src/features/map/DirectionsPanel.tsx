@@ -17,8 +17,10 @@ import {
   Footprints,
   Locate,
   MapPin,
+  Navigation2,
   RotateCw,
   Search,
+  Square,
   TrafficCone,
   X,
 } from 'lucide-react';
@@ -80,6 +82,12 @@ export function DirectionsPanel() {
   const setDestination = useDirectionsStore((s) => s.setDestination);
   const swapEndpoints = useDirectionsStore((s) => s.swapEndpoints);
   const clearRoute = useDirectionsStore((s) => s.clearRoute);
+  const isNavigating = useDirectionsStore((s) => s.isNavigating);
+  const currentStepIndex = useDirectionsStore((s) => s.currentStepIndex);
+  const startNavigation = useDirectionsStore((s) => s.startNavigation);
+  const stopNavigation = useDirectionsStore((s) => s.stopNavigation);
+  const setCurrentStep = useDirectionsStore((s) => s.setCurrentStep);
+  const advanceStep = useDirectionsStore((s) => s.advanceStep);
   const userLocation = useMapStore((s) => s.userLocation);
 
   const [editTarget, setEditTarget] = useState<EditTarget>(null);
@@ -295,12 +303,89 @@ export function DirectionsPanel() {
             )}
           </div>
 
+          {route && !loading && (
+            <div className={styles.navActions}>
+              {!isNavigating ? (
+                <button
+                  type="button"
+                  className={styles.startBtn}
+                  onClick={() => {
+                    tapHaptic();
+                    startNavigation();
+                  }}
+                >
+                  <Navigation2 size={16} strokeWidth={2.4} />
+                  Start
+                </button>
+              ) : (
+                <>
+                  <div className={styles.navStatus}>
+                    <span className={styles.navDot} />
+                    Navigating · Step {currentStepIndex + 1} of {route.steps.length}
+                  </div>
+                  <div className={styles.navBtns}>
+                    {currentStepIndex < route.steps.length - 1 ? (
+                      <button
+                        type="button"
+                        className={styles.nextBtn}
+                        onClick={() => {
+                          tapHaptic();
+                          advanceStep();
+                        }}
+                      >
+                        Next step
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.nextBtn}
+                        onClick={() => {
+                          tapHaptic();
+                          stopNavigation();
+                        }}
+                      >
+                        Arrived 🎉
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.stopBtn}
+                      onClick={() => {
+                        tapHaptic();
+                        stopNavigation();
+                      }}
+                      aria-label="Exit navigation"
+                    >
+                      <Square size={14} strokeWidth={2.4} fill="currentColor" />
+                      Exit
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {route && route.steps.length > 0 && !loading && (
             <ol className={styles.steps}>
               {route.steps.map((step, i) => {
                 const Icon = maneuverIcon(step);
+                const isActive = isNavigating && i === currentStepIndex;
+                const isPast = isNavigating && i < currentStepIndex;
                 return (
-                  <li key={i} className={styles.step}>
+                  <li
+                    key={i}
+                    className={[
+                      styles.step,
+                      isActive ? styles.stepActive : '',
+                      isPast ? styles.stepPast : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => {
+                      if (isNavigating) setCurrentStep(i);
+                    }}
+                    style={{ cursor: isNavigating ? 'pointer' : 'default' }}
+                  >
                     <span className={styles.stepIcon}>
                       <Icon size={14} strokeWidth={2.2} />
                     </span>
