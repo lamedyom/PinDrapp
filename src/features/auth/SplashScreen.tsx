@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BrandMark } from '../../components/layout/BrandMark';
-import { supabase } from '../../lib/supabase';
+import { supabase, OAUTH_REDIRECT_URL } from '../../lib/supabase';
 import { showToast } from '../../stores/toastStore';
 import { tapHaptic } from '../../lib/haptics';
 import { GoogleIcon, AppleIcon } from './brandIcons';
@@ -22,7 +22,15 @@ export function SplashScreen() {
     setBusy(provider);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        // Pinned to the prod URL (see OAUTH_REDIRECT_URL in lib/supabase.ts).
+        // Must be in the Supabase Redirect URLs allow list.
+        redirectTo: OAUTH_REDIRECT_URL,
+        // Ask Google to always show the account chooser even if there's
+        // only one cached account — better UX for users with multiple
+        // Google accounts.
+        ...(provider === 'google' ? { queryParams: { prompt: 'select_account' } } : {}),
+      },
     });
     if (error) {
       setBusy(null);

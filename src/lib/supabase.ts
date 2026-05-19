@@ -7,6 +7,20 @@ const isPlaceholder = (v: string | undefined): boolean =>
   !v || v.trim().length === 0 || v.startsWith('your_');
 
 /**
+ * Where OAuth providers (Google, Apple) and magic-link emails should redirect
+ * the user back to after signing in. Hardcoded to the production URL so OAuth
+ * always lands on the live app, even if the sign-in tab is opened from a
+ * weird origin. Override per-environment with `VITE_AUTH_REDIRECT_URL`
+ * (set it to `http://localhost:5173/auth/callback` for local dev).
+ *
+ * IMPORTANT: this URL must also be listed in Supabase → Authentication →
+ * URL Configuration → Redirect URLs (allow list).
+ */
+export const OAUTH_REDIRECT_URL: string =
+  (import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined) ??
+  'https://pindrapp.onrender.com/auth/callback';
+
+/**
  * True when both Supabase env vars are set. The whole auth flow gates on
  * this — if Supabase isn't configured (e.g. local demo without a project),
  * the app falls back to the seeded mock data and skips auth entirely.

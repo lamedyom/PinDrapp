@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, Mail } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, OAUTH_REDIRECT_URL } from '../../lib/supabase';
 import { showToast } from '../../stores/toastStore';
 import styles from './EmailAuth.module.css';
 
@@ -42,7 +42,7 @@ export function EmailAuth() {
         const { error: signupErr } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: { emailRedirectTo: OAUTH_REDIRECT_URL },
         });
         if (signupErr) throw signupErr;
         showToast('Check your inbox to confirm your email');
@@ -65,7 +65,7 @@ export function EmailAuth() {
   const sendReset = async () => {
     if (!supabase || !validEmail) return;
     const { error: e } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: OAUTH_REDIRECT_URL,
     });
     if (e) {
       setError(e.message);
