@@ -14,6 +14,68 @@ npm run dev:all         # web + Stripe payment-intent server (requires server/.e
 
 App runs at `http://localhost:5173`. The Stripe backend (optional) runs at `http://localhost:3001`.
 
+## Auth + database (Supabase)
+
+Auth, user profiles, businesses, posts, deals, saved places and likes are
+all backed by Supabase. **When the Supabase env vars are not set the entire
+auth flow is bypassed** and the app runs against the local zustand mock data
+— useful for offline UI work but read-only.
+
+### 1. Create the project + run the schema
+
+1. Create a Supabase project at <https://supabase.com>.
+2. Project Settings → API → copy the **Project URL** and **anon public key**
+   into `.env`:
+   ```
+   VITE_SUPABASE_URL=https://xxxxxxx.supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJh...
+   ```
+3. SQL Editor → New query → paste the entire contents of
+   [`supabase/schema.sql`](./supabase/schema.sql) → Run. This creates the
+   `users`, `businesses`, `posts`, `deals`, `saved_places`, `likes` tables,
+   row-level-security policies, and the `avatars` + `videos` storage buckets.
+   The script is idempotent — safe to re-run.
+
+### 2. Google OAuth
+
+1. Google Cloud Console → APIs & Services → Credentials → **Create
+   credentials → OAuth client ID** (type: Web application).
+2. **Authorized JavaScript origins**: your dev URL (`http://localhost:5173`)
+   and your prod URL (`https://your-app.onrender.com`).
+3. **Authorized redirect URIs** (this is the important one): copy from
+   Supabase → Authentication → Providers → Google → it'll look like
+   `https://xxxxxxx.supabase.co/auth/v1/callback`.
+4. Copy the Client ID + Client Secret back into Supabase → Authentication →
+   Providers → Google → enable.
+
+### 3. Apple OAuth
+
+1. Apple Developer → Identifiers → **+** → App IDs → enable
+   **Sign in with Apple** capability on a new (or existing) App ID.
+2. Identifiers → **+** → Services IDs → create one (e.g.
+   `app.pindrapp.web`). Enable Sign in with Apple, configure
+   **Return URLs** = `https://xxxxxxx.supabase.co/auth/v1/callback`.
+3. Keys → **+** → Sign in with Apple → enable for your App ID → download
+   the `.p8` key file.
+4. Supabase → Authentication → Providers → Apple → enable, then paste:
+   - **Services ID** (e.g. `app.pindrapp.web`)
+   - **Team ID** (top-right of Apple Developer)
+   - **Key ID** (from the key you just generated)
+   - **Private key** (paste the contents of the `.p8`)
+
+### 4. Phone OTP
+
+Supabase → Authentication → Providers → **Phone** → enable. The default
+provider is Twilio — add your Twilio credentials. (Alternatively MessageBird
+or Vonage.) Set the OTP length to 6 and the OTP expiry to 60 s.
+
+### 5. Site URL
+
+Supabase → Authentication → URL Configuration:
+- **Site URL**: `http://localhost:5173` (dev) or your prod URL
+- **Redirect URLs (allow list)**: both `http://localhost:5173/auth/callback`
+  and `https://your-app.onrender.com/auth/callback`
+
 ## Environment
 
 Copy `.env.example` to `.env` and fill in keys:

@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { Elements } from '@stripe/react-stripe-js';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AppRoutes } from './routes';
+import { AuthGate } from './AuthGate';
 import { stripePromise } from '../lib/stripe';
 import { BrandMark } from '../components/layout/BrandMark';
 import { Toast } from '../components/ui/Toast';
@@ -51,7 +52,9 @@ export default function App() {
 
   const inner = (
     <BrowserRouter>
-      <AppRoutes />
+      <AuthGate>
+        <AppRoutes />
+      </AuthGate>
       <Toast />
     </BrowserRouter>
   );

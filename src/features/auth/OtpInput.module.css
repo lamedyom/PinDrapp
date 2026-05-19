@@ -1,0 +1,30 @@
+.row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.box {
+  width: 48px;
+  height: 56px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--text-primary);
+  text-align: center;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.box:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(255, 92, 26, 0.18);
+}
+
+.boxError {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(255, 58, 58, 0.16);
+}

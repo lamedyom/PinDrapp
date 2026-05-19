@@ -6,6 +6,10 @@ import { MapScreen } from '../features/map/MapScreen';
 import { DealsScreen } from '../features/deals/DealsScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { PostScreen } from '../features/post/PostScreen';
+import { SplashScreen } from '../features/auth/SplashScreen';
+import { PhoneAuth } from '../features/auth/PhoneAuth';
+import { EmailAuth } from '../features/auth/EmailAuth';
+import { AuthCallback } from '../features/auth/AuthCallback';
 
 const pageVariants = {
   initial: { opacity: 0, y: 16 },
@@ -36,6 +40,13 @@ export function AppRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
+        {/* Auth flow — public routes, no shell */}
+        <Route path="/auth/splash" element={<SplashScreen />} />
+        <Route path="/auth/phone" element={<PhoneAuth />} />
+        <Route path="/auth/email" element={<EmailAuth />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+
+        {/* Main app — wrapped in shell */}
         <Route path="/" element={<Navigate to="/feed" replace />} />
         <Route element={<AppShell />}>
           <Route
