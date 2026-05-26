@@ -29,10 +29,10 @@ export function EditProfileModal() {
   const profile = useUserStore((s) => s.profile);
   const update = useUserStore((s) => s.updateProfile);
 
-  const [form, setForm] = useState<BusinessProfile>(profile);
+  const [form, setForm] = useState<BusinessProfile | null>(profile ?? null);
 
   useEffect(() => {
-    if (open) setForm(profile);
+    if (open) setForm(profile ?? null);
   }, [open, profile]);
 
   const { getRootProps, getInputProps } = useDropzone({
@@ -42,16 +42,21 @@ export function EditProfileModal() {
       const f = files[0];
       if (f) {
         const url = URL.createObjectURL(f);
-        setForm((c) => ({ ...c, imageUrl: url }));
+        setForm((c) => (c ? { ...c, imageUrl: url } : c));
       }
     },
   });
 
   const save = () => {
+    if (!form) return;
     update(form);
     showToast('Profile updated ✓');
     close();
   };
+
+  // No profile to edit yet — render an empty sheet rather than crashing on
+  // form.* field reads.
+  if (!form) return <Modal open={open} onClose={close} label="Edit profile" />;
 
   return (
     <Modal open={open} onClose={close} label="Edit profile">

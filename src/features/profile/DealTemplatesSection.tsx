@@ -1,12 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { useUserStore } from '../../stores/userStore';
+import { useUserStore, type DealTemplate } from '../../stores/userStore';
 import { Button } from '../../components/ui/Button';
 import styles from './DealTemplatesSection.module.css';
 
+// Stable empty reference — see MenuSection for why this matters.
+const EMPTY_TEMPLATES: DealTemplate[] = [];
+
 export function DealTemplatesSection() {
   const navigate = useNavigate();
-  const templates = useUserStore((s) => s.profile.dealTemplates);
+  const templates = useUserStore((s) => s.profile?.dealTemplates) ?? EMPTY_TEMPLATES;
 
   return (
     <section className={styles.section}>

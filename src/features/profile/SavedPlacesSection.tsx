@@ -65,7 +65,7 @@ export function SavedPlacesSection() {
       </header>
 
       <div className={`${styles.row} no-scrollbar`}>
-        {places.map((p) => (
+        {(places ?? []).map((p) => (
           <PlaceTile
             key={p.id}
             place={p}

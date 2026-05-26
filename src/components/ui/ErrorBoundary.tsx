@@ -24,8 +24,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    // eslint-disable-next-line no-console
-    console.error('[pindrapp] screen crashed:', error, info.componentStack);
+    // Log loudly so the exact message + component stack are visible in the
+    // browser console (and any error-reporting hook listening to console).
+    /* eslint-disable no-console */
+    console.error(`[pindrapp] ${this.props.label ?? 'screen'} crashed:`, error.message);
+    console.error('[pindrapp] stack:', error.stack);
+    console.error('[pindrapp] component stack:', info.componentStack);
+    /* eslint-enable no-console */
   }
 
   reset = (): void => {
@@ -61,6 +66,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, maxWidth: 280 }}>
             This screen ran into an error. The rest of the app is still fine.
           </div>
+          {this.state.error.message && (
+            <code
+              style={{
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                fontSize: 11,
+                color: 'var(--red)',
+                background: 'rgba(255, 58, 58, 0.1)',
+                border: '1px solid rgba(255, 58, 58, 0.25)',
+                borderRadius: 8,
+                padding: '8px 10px',
+                maxWidth: 300,
+                wordBreak: 'break-word',
+                textAlign: 'left',
+              }}
+            >
+              {this.state.error.message}
+            </code>
+          )}
           <button
             type="button"
             onClick={this.reset}

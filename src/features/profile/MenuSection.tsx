@@ -8,8 +8,12 @@ import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import styles from './MenuSection.module.css';
 
+// Stable empty reference so a null profile doesn't create a fresh [] each
+// render (which would thrash zustand's equality check into a re-render loop).
+const EMPTY_ITEMS: MenuItem[] = [];
+
 export function MenuSection() {
-  const items = useUserStore((s) => s.profile.menuItems);
+  const items = useUserStore((s) => s.profile?.menuItems) ?? EMPTY_ITEMS;
   const toggleAvail = useUserStore((s) => s.toggleMenuItemAvailability);
   const updateItem = useUserStore((s) => s.updateMenuItem);
   const addItem = useUserStore((s) => s.addMenuItem);
@@ -22,7 +26,7 @@ export function MenuSection() {
 
   const grouped = useMemo(() => {
     const map = new Map<string, MenuItem[]>();
-    items.forEach((item) => {
+    (items ?? []).forEach((item) => {
       const arr = map.get(item.category) ?? [];
       arr.push(item);
       map.set(item.category, arr);
