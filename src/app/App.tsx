@@ -7,6 +7,7 @@ import { AuthGate } from './AuthGate';
 import { stripePromise } from '../lib/stripe';
 import { BrandMark } from '../components/layout/BrandMark';
 import { Toast } from '../components/ui/Toast';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
 function LoadingGate() {
   return (
@@ -52,9 +53,13 @@ export default function App() {
 
   const inner = (
     <BrowserRouter>
-      <AuthGate>
-        <AppRoutes />
-      </AuthGate>
+      {/* App-level boundary catches crashes in AuthGate / AppShell — above
+       * the per-route boundaries — so nothing can produce a black screen. */}
+      <ErrorBoundary label="Pindrapp">
+        <AuthGate>
+          <AppRoutes />
+        </AuthGate>
+      </ErrorBoundary>
       <Toast />
     </BrowserRouter>
   );

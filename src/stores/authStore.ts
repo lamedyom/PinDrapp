@@ -86,45 +86,76 @@ export const useAuthStore = create<AuthState>()(
         });
         return;
       }
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-      let profile: UserProfile | null = null;
-      let business: BusinessProfile | null = null;
+      const sb = supabase;
+      try {
+        const { data } = await sb.auth.getSession();
+        const session = data.session;
+        let profile: UserProfile | null = null;
+        let business: BusinessProfile | null = null;
 
-      if (session) {
-        profile = await loadProfile(session.user.id);
-        if (profile?.userType === 'business') {
-          business = await loadBusiness(profile.id);
+        if (session) {
+          profile = await loadProfile(session.user.id);
+          if (profile?.userType === 'business') {
+            business = await loadBusiness(profile.id);
+          }
         }
+        set((s) => {
+          s.session = session;
+          s.authUser = session?.user ?? null;
+          s.profile = profile;
+          s.business = business;
+          s.stage = deriveStageFor(session, profile, business);
+        });
+      } catch (err) {
+        // A Supabase outage / network failure must never strand the app in
+        // the 'loading' state. Fall through to unauthenticated so the splash
+        // renders and the user can retry.
+        // eslint-disable-next-line no-console
+        console.error('[pindrapp] auth init failed:', err);
+        set((s) => {
+          s.session = null;
+          s.authUser = null;
+          s.profile = null;
+          s.business = null;
+          s.stage = 'unauthenticated';
+          s.error = err instanceof Error ? err.message : 'Auth init failed';
+        });
       }
-      set((s) => {
-        s.session = session;
-        s.authUser = session?.user ?? null;
-        s.profile = profile;
-        s.business = business;
-        s.stage = deriveStageFor(session, profile, business);
-      });
 
-      supabase.auth.onAuthStateChange(async (event, sess) => {
-        if (event === 'SIGNED_OUT' || !sess) {
+      sb.auth.onAuthStateChange(async (event, sess) => {
+        try {
+          if (event === 'SIGNED_OUT' || !sess) {
+            set((s) => {
+              s.session = null;
+              s.authUser = null;
+              s.profile = null;
+              s.business = null;
+              s.stage = 'unauthenticated';
+            });
+            return;
+          }
+          const p = await loadProfile(sess.user.id);
+          const b = p?.userType === 'business' ? await loadBusiness(p.id) : null;
           set((s) => {
-            s.session = null;
-            s.authUser = null;
+            s.session = sess;
+            s.authUser = sess.user;
+            s.profile = p;
+            s.business = b;
+            s.stage = deriveStageFor(sess, p, b);
+          });
+        } catch (err) {
+          // Don't let a failed profile fetch blank the app — keep the session
+          // but route to onboarding (no profile) rather than crashing.
+          // eslint-disable-next-line no-console
+          console.error('[pindrapp] auth state change failed:', err);
+          set((s) => {
+            s.session = sess ?? null;
+            s.authUser = sess?.user ?? null;
             s.profile = null;
             s.business = null;
-            s.stage = 'unauthenticated';
+            s.stage = sess ? 'pickingType' : 'unauthenticated';
           });
-          return;
         }
-        const p = await loadProfile(sess.user.id);
-        const b = p?.userType === 'business' ? await loadBusiness(p.id) : null;
-        set((s) => {
-          s.session = sess;
-          s.authUser = sess.user;
-          s.profile = p;
-          s.business = b;
-          s.stage = deriveStageFor(sess, p, b);
-        });
       });
     },
 

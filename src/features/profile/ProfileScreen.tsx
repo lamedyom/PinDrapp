@@ -11,6 +11,27 @@ import { EditProfileModal } from './EditProfileModal';
 import { SavedPlacesSection } from './SavedPlacesSection';
 import styles from './ProfileScreen.module.css';
 
+// Defensive defaults — guarantees every field the render reads is defined,
+// even if the store hasn't hydrated or a Supabase field came back null.
+const EMPTY_PROFILE = {
+  id: 'profile',
+  name: 'Your Business',
+  category: 'Business',
+  coverEmoji: '🏪',
+  bio: '',
+  imageUrl: null as string | null,
+  website: '',
+  instagram: '',
+  phone: '',
+  address: '',
+  followerCount: 0,
+  postCount: 0,
+  mapSaveCount: 0,
+  dealClaimCount: 0,
+  menuItems: [],
+  dealTemplates: [],
+};
+
 export function ProfileScreen() {
   const profile = useUserStore((s) => s.profile);
   const openEdit = useUserStore((s) => s.openEditModal);
@@ -20,24 +41,28 @@ export function ProfileScreen() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
   // When a Supabase-backed business exists, overlay its data on top of the
-  // mock profile so the screen reflects the signed-in business.
-  const effective: typeof profile = useMemo(() => {
-    if (!authBusiness) return profile;
+  // mock profile so the screen reflects the signed-in business. Every field
+  // falls back to the mock profile, and the whole thing is defensively
+  // defaulted so a missing field can never crash the render.
+  const effective = useMemo(() => {
+    const base = profile ?? EMPTY_PROFILE;
+    if (!authBusiness) return { ...EMPTY_PROFILE, ...base };
     return {
-      ...profile,
-      name: authBusiness.name || profile.name,
-      category: authBusiness.category || profile.category,
-      bio: authBusiness.bio || profile.bio,
-      address: authBusiness.address ?? profile.address,
-      website: authBusiness.website ?? profile.website,
-      instagram: authBusiness.instagram ?? profile.instagram,
-      phone: authBusiness.phone ?? profile.phone,
-      imageUrl: authBusiness.avatarUrl ?? effective.imageUrl,
-      followerCount: authBusiness.followerCount || profile.followerCount,
+      ...EMPTY_PROFILE,
+      ...base,
+      name: authBusiness.name || base.name,
+      category: authBusiness.category || base.category,
+      bio: authBusiness.bio || base.bio,
+      address: authBusiness.address ?? base.address,
+      website: authBusiness.website ?? base.website,
+      instagram: authBusiness.instagram ?? base.instagram,
+      phone: authBusiness.phone ?? base.phone,
+      imageUrl: authBusiness.avatarUrl ?? base.imageUrl,
+      followerCount: authBusiness.followerCount || base.followerCount,
     };
   }, [authBusiness, profile]);
 
-  const myPosts = useMemo(() => posts.slice(0, 9), [posts]);
+  const myPosts = useMemo(() => (Array.isArray(posts) ? posts.slice(0, 9) : []), [posts]);
 
   const handleAvatarPick = async () => {
     if (typeof document === 'undefined') return;
@@ -79,10 +104,10 @@ export function ProfileScreen() {
       </div>
 
       <div className={styles.identity}>
-        <h1 className={styles.name}>{effective.name}</h1>
-        <div className={styles.category}>{effective.category.toUpperCase()}</div>
+        <h1 className={styles.name}>{effective.name || 'Your Business'}</h1>
+        <div className={styles.category}>{(effective.category || 'Business').toUpperCase()}</div>
         <div className={styles.locationRow}>
-          <MapPin size={12} /> {effective.address}
+          <MapPin size={12} /> {effective.address || 'No address set'}
         </div>
         <p className={styles.bio}>{effective.bio}</p>
         <div className={styles.actions}>
@@ -107,9 +132,9 @@ export function ProfileScreen() {
 
       <div className={styles.stats}>
         <Stat label="Followers" value={effective.followerCount} />
-        <Stat label="Posts" value={profile.postCount} />
-        <Stat label="Map Saves" value={profile.mapSaveCount} />
-        <Stat label="Deal Claims" value={profile.dealClaimCount} />
+        <Stat label="Posts" value={effective.postCount} />
+        <Stat label="Map Saves" value={effective.mapSaveCount} />
+        <Stat label="Deal Claims" value={effective.dealClaimCount} />
       </div>
 
       <div className={styles.mapCallout}>
@@ -118,7 +143,7 @@ export function ProfileScreen() {
         </div>
         <div>
           <div className={styles.mapCalloutTitle}>
-            Saved to {profile.mapSaveCount} people's maps
+            Saved to {effective.mapSaveCount} people's maps
           </div>
           <div className={styles.mapCalloutSub}>
             People who saw your content and pinned your business
@@ -173,9 +198,10 @@ export function ProfileScreen() {
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
+  const safe = typeof value === 'number' && Number.isFinite(value) ? value : 0;
   return (
     <div className={styles.stat}>
-      <div className={styles.statValue}>{value.toLocaleString()}</div>
+      <div className={styles.statValue}>{safe.toLocaleString()}</div>
       <div className={styles.statLabel}>{label}</div>
     </div>
   );
