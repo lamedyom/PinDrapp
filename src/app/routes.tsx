@@ -10,6 +10,7 @@ import { SplashScreen } from '../features/auth/SplashScreen';
 import { PhoneAuth } from '../features/auth/PhoneAuth';
 import { EmailAuth } from '../features/auth/EmailAuth';
 import { AuthCallback } from '../features/auth/AuthCallback';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
 const pageVariants = {
   initial: { opacity: 0, y: 16 },
@@ -19,7 +20,7 @@ const pageVariants = {
 
 const pageTransition = { duration: 0.2, ease: 'easeOut' as const };
 
-function PageWrap({ children }: { children: React.ReactNode }) {
+function PageWrap({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <motion.div
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
@@ -29,7 +30,8 @@ function PageWrap({ children }: { children: React.ReactNode }) {
       animate="animate"
       exit="exit"
     >
-      {children}
+      {/* Per-screen boundary — one crashing page can't blank the whole app. */}
+      <ErrorBoundary label={label}>{children}</ErrorBoundary>
     </motion.div>
   );
 }
@@ -59,7 +61,7 @@ export function AppRoutes() {
           <Route
             path="/feed"
             element={
-              <PageWrap>
+              <PageWrap label="Feed">
                 <FeedScreen />
               </PageWrap>
             }
@@ -67,7 +69,7 @@ export function AppRoutes() {
           <Route
             path="/map"
             element={
-              <PageWrap>
+              <PageWrap label="Map">
                 <MapScreen />
               </PageWrap>
             }
@@ -75,7 +77,7 @@ export function AppRoutes() {
           <Route
             path="/deals"
             element={
-              <PageWrap>
+              <PageWrap label="Deals">
                 <DealsScreen />
               </PageWrap>
             }
@@ -83,13 +85,20 @@ export function AppRoutes() {
           <Route
             path="/profile"
             element={
-              <PageWrap>
+              <PageWrap label="Profile">
                 <ProfileScreen />
               </PageWrap>
             }
           />
         </Route>
-        <Route path="/post" element={<PostScreen />} />
+        <Route
+          path="/post"
+          element={
+            <ErrorBoundary label="Post">
+              <PostScreen />
+            </ErrorBoundary>
+          }
+        />
       </Routes>
     </AnimatePresence>
   );

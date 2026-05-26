@@ -71,6 +71,18 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }, [stage, location.pathname, navigate]);
 
+  // No Supabase configured (demo / mock-data mode): the /onboarding and
+  // /auth/* routes have no meaning — never strand the user on the blank
+  // onboarding placeholder. Send them straight to the feed.
+  useEffect(() => {
+    if (
+      stage === 'disabled' &&
+      (location.pathname === '/onboarding' || location.pathname.startsWith('/auth'))
+    ) {
+      navigate('/feed', { replace: true });
+    }
+  }, [stage, location.pathname, navigate]);
+
   if (stage === 'loading') {
     return (
       <div

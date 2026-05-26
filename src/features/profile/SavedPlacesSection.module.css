@@ -65,6 +65,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   text-align: left;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   overflow: hidden;

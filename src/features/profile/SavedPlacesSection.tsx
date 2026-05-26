@@ -155,12 +155,20 @@ function PlaceTile({
   };
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className={styles.tile}
       onClick={() => {
         tapHaptic();
         flyToPlace(place.id);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          tapHaptic();
+          flyToPlace(place.id);
+        }
       }}
     >
       <div className={styles.tileTop}>
@@ -192,6 +200,6 @@ function PlaceTile({
           {place.placeName ?? (isPermanent ? 'Tap ✎ to add address' : 'Saved')}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
