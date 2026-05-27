@@ -107,6 +107,34 @@ create table if not exists public.likes (
 create index if not exists likes_post_idx on public.likes(post_id);
 
 -- ============================================================================
+-- like_count maintenance — keep posts.like_count in sync with the likes table
+-- via a trigger. SECURITY DEFINER so a consumer liking a post can bump the
+-- count on a post they don't own (RLS would otherwise block the UPDATE).
+-- ============================================================================
+create or replace function public.bump_like_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (tg_op = 'INSERT') then
+    update public.posts set like_count = like_count + 1 where id = new.post_id;
+    return new;
+  elsif (tg_op = 'DELETE') then
+    update public.posts set like_count = greatest(0, like_count - 1) where id = old.post_id;
+    return old;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists likes_count_trigger on public.likes;
+create trigger likes_count_trigger
+  after insert or delete on public.likes
+  for each row execute function public.bump_like_count();
+
+-- ============================================================================
 -- Row-level security policies
 -- ============================================================================
 alter table public.users         enable row level security;
@@ -205,6 +233,39 @@ create policy likes_self_write on public.likes
 drop policy if exists likes_self_delete on public.likes;
 create policy likes_self_delete on public.likes
   for delete using (user_id in (select id from public.users where auth_id = auth.uid()));
+
+-- ============================================================================
+-- Realtime — add the tables the client subscribes to into the
+-- supabase_realtime publication so postgres_changes events are emitted.
+-- ============================================================================
+do $$
+begin
+  -- add tables only if not already members of the publication
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'posts'
+  ) then
+    alter publication supabase_realtime add table public.posts;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'deals'
+  ) then
+    alter publication supabase_realtime add table public.deals;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'likes'
+  ) then
+    alter publication supabase_realtime add table public.likes;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'saved_places'
+  ) then
+    alter publication supabase_realtime add table public.saved_places;
+  end if;
+end $$;
 
 -- ============================================================================
 -- Storage buckets

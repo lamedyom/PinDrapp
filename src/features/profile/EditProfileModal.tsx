@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Camera } from 'lucide-react';
 import { useUserStore, type BusinessProfile } from '../../stores/userStore';
+import { useAuthStore } from '../../stores/authStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { showToast } from '../../stores/toastStore';
+import { uploadAvatar } from '../../lib/supabaseApi';
+import { supabase } from '../../lib/supabase';
 import styles from './EditProfileModal.module.css';
 
 const CATEGORIES = [
@@ -35,22 +38,61 @@ export function EditProfileModal() {
     if (open) setForm(profile ?? null);
   }, [open, profile]);
 
+  const authBusiness = useAuthStore((s) => s.business);
+  const refreshProfile = useAuthStore((s) => s.refreshProfile);
+
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'image/*': [] },
     multiple: false,
-    onDrop: (files) => {
+    onDrop: async (files) => {
       const f = files[0];
-      if (f) {
-        const url = URL.createObjectURL(f);
-        setForm((c) => (c ? { ...c, imageUrl: url } : c));
+      if (!f) return;
+      // Show the local preview immediately.
+      const localUrl = URL.createObjectURL(f);
+      setForm((c) => (c ? { ...c, imageUrl: localUrl } : c));
+      // If we're authed, upload to Supabase storage and swap to the public URL.
+      if (authBusiness) {
+        try {
+          const remote = await uploadAvatar(f);
+          if (remote) setForm((c) => (c ? { ...c, imageUrl: remote } : c));
+        } catch (e) {
+          showToast(`Image upload failed${e instanceof Error ? ` — ${e.message}` : ''}`);
+        }
       }
     },
   });
 
-  const save = () => {
+  const save = async () => {
     if (!form) return;
+    // Always update the local store for instant UI.
     update(form);
-    showToast('Profile updated ✓');
+
+    // Persist to Supabase when this is a real signed-in business.
+    if (authBusiness && supabase) {
+      try {
+        const { error } = await supabase
+          .from('businesses')
+          .update({
+            name: form.name,
+            bio: form.bio,
+            category: form.category,
+            website: form.website,
+            instagram: form.instagram,
+            phone: form.phone,
+            address: form.address,
+            avatar_url: form.imageUrl,
+          })
+          .eq('id', authBusiness.id);
+        if (error) throw error;
+        await refreshProfile();
+        showToast('Profile saved ✓');
+      } catch (e) {
+        showToast(`Couldn't save profile${e instanceof Error ? ` — ${e.message}` : ''}`);
+        return; // keep the modal open so the user can retry
+      }
+    } else {
+      showToast('Profile updated ✓');
+    }
     close();
   };
 
@@ -63,7 +105,7 @@ export function EditProfileModal() {
       <div className={styles.host}>
         <header className={styles.head}>
           <h3>Edit Profile</h3>
-          <button type="button" className={styles.doneBtn} onClick={save}>
+          <button type="button" className={styles.doneBtn} onClick={() => void save()}>
             Done
           </button>
         </header>
@@ -167,7 +209,7 @@ export function EditProfileModal() {
           <button type="button" className={styles.cancelBtn} onClick={close}>
             Cancel
           </button>
-          <Button fullWidth variant="primary" size="lg" onClick={save}>
+          <Button fullWidth variant="primary" size="lg" onClick={() => void save()}>
             Save Changes
           </Button>
         </footer>

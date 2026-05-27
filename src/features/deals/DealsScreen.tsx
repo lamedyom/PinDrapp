@@ -4,6 +4,7 @@ import { useDealStore } from '../../stores/dealStore';
 import { DealCard } from './DealCard';
 import { CheckoutModal } from './CheckoutModal';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Skeleton } from '../../components/ui/Skeleton';
 import styles from './DealsScreen.module.css';
 
 const CATEGORIES = [
@@ -21,6 +22,7 @@ export function DealsScreen() {
   const deals = useDealStore((s) => s.deals);
   const activeCategory = useDealStore((s) => s.activeCategory);
   const setCategory = useDealStore((s) => s.setCategory);
+  const loading = useDealStore((s) => s.loading);
 
   const visibleDeals = useMemo(() => {
     return activeCategory === 'All'
@@ -56,7 +58,11 @@ export function DealsScreen() {
       </div>
 
       <div className={styles.list}>
-        {visibleDeals.length === 0 ? (
+        {loading && deals.length === 0 ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} width="100%" height={232} radius={16} />
+          ))
+        ) : visibleDeals.length === 0 ? (
           <EmptyState
             icon={<Zap size={36} />}
             message="No active deals nearby right now"

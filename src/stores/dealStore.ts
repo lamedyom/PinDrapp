@@ -39,8 +39,11 @@ interface DealState {
   checkoutQuantity: number;
   checkoutStatus: CheckoutStatus;
   checkoutError: string | null;
+  loading: boolean;
+  hydrated: boolean;
 
   setCategory: (c: string) => void;
+  setLoading: (loading: boolean) => void;
   openCheckout: (dealId: string) => void;
   closeCheckout: () => void;
   setQuantity: (q: number) => void;
@@ -152,6 +155,13 @@ export const useDealStore = create<DealState>()(
     checkoutQuantity: 1,
     checkoutStatus: 'idle',
     checkoutError: null,
+    loading: false,
+    hydrated: false,
+
+    setLoading: (loading) =>
+      set((s) => {
+        s.loading = loading;
+      }),
 
     setCategory: (c) =>
       set((s) => {
@@ -221,6 +231,8 @@ export const useDealStore = create<DealState>()(
     hydrate: (deals) =>
       set((s) => {
         s.deals = deals;
+        s.hydrated = true;
+        s.loading = false;
       }),
   })),
 );

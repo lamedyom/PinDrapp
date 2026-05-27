@@ -3,6 +3,8 @@ import { useAuthStore } from '../stores/authStore';
 import { useMapStore } from '../stores/mapStore';
 import { useFeedStore } from '../stores/feedStore';
 import { useDealStore } from '../stores/dealStore';
+import { supabase } from '../lib/supabase';
+import { showToast } from '../stores/toastStore';
 import {
   fetchDeals,
   fetchExploreBusinesses,
@@ -11,44 +13,103 @@ import {
 } from '../lib/supabaseApi';
 
 /**
- * Once the auth stage is `authenticated`, hydrate the feed / deals /
- * explore / saved-places stores from Supabase. Re-runs whenever the
- * user's profile id changes (sign in, sign out into another account).
+ * Once authenticated, hydrate the feed / deals / explore / saved-places
+ * stores from Supabase and keep them live via realtime subscriptions.
+ *
+ * No-op in 'disabled' mode (no Supabase) — the stores keep their mock seed.
  */
 export function useBootstrap(): void {
   const stage = useAuthStore((s) => s.stage);
   const profile = useAuthStore((s) => s.profile);
-  const userLocation = useMapStore((s) => s.userLocation);
+  const userLat = useMapStore((s) => s.userLocation?.lat);
+  const userLng = useMapStore((s) => s.userLocation?.lng);
 
   useEffect(() => {
-    if (stage !== 'authenticated' || !profile) return;
+    if (stage !== 'authenticated' || !profile || !supabase) return;
     let cancelled = false;
+    const sb = supabase;
+    const near =
+      userLat != null && userLng != null ? { lat: userLat, lng: userLng } : null;
 
-    const hydrate = async () => {
+    const loadFeed = async () => {
       try {
-        const [feed, deals, explore, saved] = await Promise.all([
-          fetchFeed(userLocation, profile.id),
-          fetchDeals(userLocation),
-          fetchExploreBusinesses(userLocation),
-          fetchSavedPlaces(profile.id),
-        ]);
-        if (cancelled) return;
-        if (feed.length > 0) useFeedStore.getState().hydrate(feed);
-        if (deals.length > 0) useDealStore.getState().hydrate(deals);
-        useMapStore.getState().hydrateExplore(explore);
-        useMapStore.getState().hydrateSaved(saved);
-      } catch {
-        // Network blip — keep showing whatever's in the stores (mock seed
-        // for first-time sign-ins, or last good fetch).
+        const feed = await fetchFeed(near, profile.id);
+        if (!cancelled) useFeedStore.getState().hydrate(feed);
+      } catch (e) {
+        if (!cancelled) {
+          useFeedStore.getState().setLoading(false);
+          showToast(`Couldn't load feed${msg(e)}`);
+        }
       }
     };
 
-    void hydrate();
+    const loadDeals = async () => {
+      try {
+        const deals = await fetchDeals(near);
+        if (!cancelled) useDealStore.getState().hydrate(deals);
+      } catch (e) {
+        if (!cancelled) {
+          useDealStore.getState().setLoading(false);
+          showToast(`Couldn't load deals${msg(e)}`);
+        }
+      }
+    };
+
+    const loadMap = async () => {
+      try {
+        const [explore, saved] = await Promise.all([
+          fetchExploreBusinesses(near),
+          fetchSavedPlaces(profile.id),
+        ]);
+        if (cancelled) return;
+        useMapStore.getState().hydrateExplore(explore);
+        useMapStore.getState().hydrateSaved(saved);
+      } catch {
+        // map keeps whatever it has; non-fatal
+      }
+    };
+
+    // Initial load with loading flags so screens can show skeletons.
+    useFeedStore.getState().setLoading(true);
+    useDealStore.getState().setLoading(true);
+    void loadFeed();
+    void loadDeals();
+    void loadMap();
+
+    // ── Realtime: refetch on any change (debounced). Payloads don't include
+    // the joined business row, so a full refetch is simpler + correct than
+    // surgically merging partial rows.
+    const debounce = (fn: () => void, ms = 400) => {
+      let t: ReturnType<typeof setTimeout> | null = null;
+      return () => {
+        if (t) clearTimeout(t);
+        t = setTimeout(fn, ms);
+      };
+    };
+    const refetchFeed = debounce(loadFeed);
+    const refetchDeals = debounce(loadDeals);
+    const refetchMap = debounce(loadMap);
+
+    const channel = sb
+      .channel('pindrapp-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, refetchFeed)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, () => {
+        refetchDeals();
+        refetchMap(); // deals affect green pins on the map
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, refetchFeed)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_places' }, refetchMap)
+      .subscribe();
+
     return () => {
       cancelled = true;
+      void sb.removeChannel(channel);
     };
-    // Re-fetch when the user signs in/out, or once when we first know
-    // their GPS — that gives accurate distances on the explore + deals lists.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, profile?.id, !!userLocation]);
+  }, [stage, profile?.id, userLat, userLng]);
+}
+
+function msg(e: unknown): string {
+  const m = e instanceof Error ? e.message : '';
+  return m ? ` — ${m}` : '';
 }

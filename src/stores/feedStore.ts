@@ -31,12 +31,17 @@ export interface FeedPost {
 interface FeedState {
   posts: FeedPost[];
   activeTab: FeedTab;
+  /** True while the first Supabase fetch is in flight. */
+  loading: boolean;
+  /** True once a real Supabase fetch has completed (even if it returned 0). */
+  hydrated: boolean;
 
   likePost: (id: string) => void;
   pinPost: (id: string) => void;
   setTab: (tab: FeedTab) => void;
   prependPost: (post: FeedPost) => void;
   hydrate: (posts: FeedPost[]) => void;
+  setLoading: (loading: boolean) => void;
 }
 
 // Hollywood, FL feed seed — business names and coordinates match the same
@@ -155,6 +160,8 @@ export const useFeedStore = create<FeedState>()(
   immer((set, get) => ({
     posts: mockPosts,
     activeTab: 'updates',
+    loading: false,
+    hydrated: false,
 
     likePost: (id) => {
       let nextLiked = false;
@@ -218,6 +225,13 @@ export const useFeedStore = create<FeedState>()(
     hydrate: (posts) =>
       set((s) => {
         s.posts = posts;
+        s.hydrated = true;
+        s.loading = false;
+      }),
+
+    setLoading: (loading) =>
+      set((s) => {
+        s.loading = loading;
       }),
   })),
 );
