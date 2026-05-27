@@ -61,17 +61,10 @@
   color: var(--text-muted);
 }
 
-.optionDecor {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  color: rgba(255, 255, 255, 0.2);
-}
-
 .recordWrap {
   position: relative;
   width: 100%;
-  height: 340px;
+  height: 360px;
   background: #000;
   border-radius: 18px;
   overflow: hidden;
@@ -84,38 +77,131 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .previewWrap {
   position: relative;
   width: 100%;
-  height: 280px;
   background: #000;
   border-radius: 18px;
   overflow: hidden;
 }
 
-.preview {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.previewWrap .preview {
+  height: 280px;
 }
 
-.retake {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: inline-flex;
+.previewMeta {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid var(--border);
+}
+
+.previewInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.previewName {
   font-family: var(--font-head);
   font-weight: 700;
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.previewDuration {
+  font-family: var(--font-body);
   font-size: 10px;
-  padding: 6px 10px;
+  color: var(--text-muted);
+}
+
+.removeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 8px 12px;
   border-radius: 10px;
+  flex-shrink: 0;
+  transition: background 120ms ease, transform 100ms ease;
+}
+
+.removeBtn:active {
+  transform: scale(0.95);
+}
+
+/* Review (after recording, before confirm) */
+.reviewWrap {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.reviewWrap .preview {
+  height: 300px;
+}
+
+.reviewActions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.retakeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 13px;
+  transition: transform 100ms ease;
+}
+
+.useBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--orange);
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(255, 92, 26, 0.35);
+  transition: transform 100ms ease;
+}
+
+.retakeBtn:active,
+.useBtn:active {
+  transform: scale(0.97);
 }
 
 .timer {
@@ -155,32 +241,66 @@
 
 .warning {
   font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 10px;
+  font-weight: 600;
+  font-size: 11px;
   color: var(--red);
   margin-left: 8px;
 }
 
+.cancelCamera {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
 .recordBtn {
   position: absolute;
-  bottom: 16px;
+  bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  width: 64px;
-  height: 64px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
   background: var(--red);
-  border: 4px solid #fff;
+  border: 5px solid #fff;
   cursor: pointer;
   transition: transform 120ms ease;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+
+.recordBtn:active {
+  transform: translateX(-50%) scale(0.92);
 }
 
 .recordBtnActive::after {
   content: '';
   position: absolute;
-  inset: 16px;
+  inset: 18px;
   background: #fff;
   border-radius: 6px;
+}
+
+.armedHint {
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
 }
 
 .error {
@@ -192,4 +312,5 @@
   padding: 10px 12px;
   font-family: var(--font-body);
   font-size: 12px;
+  line-height: 1.5;
 }

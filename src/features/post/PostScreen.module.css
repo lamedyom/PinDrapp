@@ -85,6 +85,52 @@
   transition: width 200ms ease;
 }
 
+.progressLabel {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--orange);
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+.postError {
+  background: rgba(255, 58, 58, 0.12);
+  border: 1px solid rgba(255, 58, 58, 0.3);
+  color: var(--red);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.priceModeToggle {
+  display: inline-flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+  align-self: flex-start;
+}
+
+.priceModeBtn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.priceModeActive {
+  background: var(--orange);
+  color: #fff;
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -197,7 +243,7 @@
 
 .priceRow {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 

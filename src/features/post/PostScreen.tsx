@@ -10,7 +10,7 @@ import { useDealStore, type Deal } from '../../stores/dealStore';
 import { useMapStore } from '../../stores/mapStore';
 import { useAuthStore } from '../../stores/authStore';
 import { AddLocationSheet, type AddedLocation } from '../places/AddLocationSheet';
-import { createDeal, createPost, uploadVideo } from '../../lib/supabaseApi';
+import { createDeal, createPost } from '../../lib/supabaseApi';
 import styles from './PostScreen.module.css';
 
 type PostTag =
@@ -66,9 +66,11 @@ export function PostScreen() {
     discountPercent: '',
     duration: 4,
   });
+  const [priceMode, setPriceMode] = useState<'price' | 'percent'>('price');
   const [location_, setLocation] = useState('Downtown Hollywood, FL');
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
   const userLocation = useMapStore((s) => s.userLocation);
 
   const handleLocationPick = (place: AddedLocation) => {
@@ -95,7 +97,11 @@ export function PostScreen() {
   }, [location.state]);
 
   const handleTemplate = (tpl: TemplateKey) => {
-    if (tpl === 'flashDeal') setTag('flashDeal');
+    if (tpl === 'flashDeal') {
+      setTag('flashDeal');
+      setCaption((c) => c || '⚡ Flash deal: ');
+      setDeal((d) => ({ ...d, duration: 4 }));
+    }
     if (tpl === 'todaysSpecial') {
       setTag('todaysSpecial');
       setCaption((c) => c || "Tonight we're serving…");
@@ -107,7 +113,7 @@ export function PostScreen() {
   };
 
   const charCount = caption.length;
-  const charOver = charCount > 140;
+  const charOver = charCount > 130;
 
   const canPost = !!video && !uploading && !posting && caption.trim().length > 0;
 
@@ -115,20 +121,19 @@ export function PostScreen() {
 
   const submit = async () => {
     if (!video) return;
+    setPostError(null);
     setPosting(true);
     try {
-      // 1) Upload the video. Prefer Supabase storage if we have an authed
-      //    business; fall back to Cloudinary via useVideoUpload otherwise.
+      // 1) Upload the video to Cloudinary (useVideoUpload reports % progress;
+      //    falls back to a local blob URL when Cloudinary isn't configured).
       let videoUrl: string | undefined;
       try {
-        if (authBusiness) {
-          const url = await uploadVideo(video.blob);
-          videoUrl = url ?? video.url;
-        } else {
-          const result = await upload(video.blob);
-          videoUrl = result.url;
-        }
-      } catch {
+        const result = await upload(video.blob);
+        videoUrl = result.url;
+      } catch (e) {
+        setPostError(
+          `Video upload failed${e instanceof Error ? ` — ${e.message}` : ''}. Using local copy.`,
+        );
         videoUrl = video.url;
       }
 
@@ -148,8 +153,12 @@ export function PostScreen() {
             caption,
             videoUrl,
           });
-        } catch {
-          // surface visually below — keep the optimistic UI
+        } catch (e) {
+          setPostError(
+            `Couldn't save your post${e instanceof Error ? ` — ${e.message}` : ''}. Please try again.`,
+          );
+          setPosting(false);
+          return; // don't fake success — let the user retry
         }
         if (tag === 'flashDeal') {
           try {
@@ -157,13 +166,13 @@ export function PostScreen() {
               businessId: authBusiness.id,
               headline: deal.headline || caption.slice(0, 60),
               description: caption,
-              originalPrice: deal.originalPrice ? Number(deal.originalPrice) : null,
-              dealPrice: deal.dealPrice ? Number(deal.dealPrice) : null,
-              discountPercent: deal.discountPercent ? Number(deal.discountPercent) : null,
+              originalPrice: priceMode === 'price' && deal.originalPrice ? Number(deal.originalPrice) : null,
+              dealPrice: priceMode === 'price' && deal.dealPrice ? Number(deal.dealPrice) : null,
+              discountPercent: priceMode === 'percent' && deal.discountPercent ? Number(deal.discountPercent) : null,
               expiresAt: new Date(Date.now() + deal.duration * 3600000),
             });
           } catch {
-            // ignore
+            // Deal is secondary — the post saved fine; don't block success.
           }
         }
       }
@@ -181,9 +190,9 @@ export function PostScreen() {
           emoji: '⚡',
           headline: deal.headline || caption.slice(0, 60),
           description: caption,
-          originalPrice: deal.originalPrice ? Number(deal.originalPrice) : null,
-          dealPrice: deal.dealPrice ? Number(deal.dealPrice) : null,
-          discountPercent: deal.discountPercent ? Number(deal.discountPercent) : null,
+          originalPrice: priceMode === 'price' && deal.originalPrice ? Number(deal.originalPrice) : null,
+          dealPrice: priceMode === 'price' && deal.dealPrice ? Number(deal.dealPrice) : null,
+          discountPercent: priceMode === 'percent' && deal.discountPercent ? Number(deal.discountPercent) : null,
           expiresAt: new Date(Date.now() + deal.duration * 3600000),
           distanceMiles: 0,
           isFeatured: false,
@@ -246,12 +255,21 @@ export function PostScreen() {
 
       <div className={styles.body}>
         {(uploading || posting) && (
-          <div className={styles.progressBar}>
-            <div
-              className={styles.progressFill}
-              style={{ width: `${posting && !uploading ? 80 : progress}%` }}
-            />
-          </div>
+          <>
+            <div className={styles.progressBar}>
+              <div
+                className={styles.progressFill}
+                style={{ width: `${uploading ? progress : posting ? 90 : 0}%` }}
+              />
+            </div>
+            <div className={styles.progressLabel}>
+              {uploading ? `Uploading… ${progress}%` : 'Posting your update…'}
+            </div>
+          </>
+        )}
+
+        {postError && !posting && (
+          <div className={styles.postError}>{postError}</div>
         )}
 
         <AnimatePresence mode="wait">
@@ -340,37 +358,66 @@ export function PostScreen() {
                       >
                         <input
                           className={styles.input}
-                          placeholder="Deal headline..."
+                          placeholder="Deal headline (e.g. Half-price pastries)"
                           value={deal.headline}
                           onChange={(e) => setDeal({ ...deal, headline: e.target.value })}
                         />
-                        <div className={styles.priceRow}>
+
+                        <div className={styles.priceModeToggle}>
+                          <button
+                            type="button"
+                            className={`${styles.priceModeBtn} ${priceMode === 'price' ? styles.priceModeActive : ''}`}
+                            onClick={() => setPriceMode('price')}
+                          >
+                            Set prices
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.priceModeBtn} ${priceMode === 'percent' ? styles.priceModeActive : ''}`}
+                            onClick={() => setPriceMode('percent')}
+                          >
+                            % off
+                          </button>
+                        </div>
+
+                        {priceMode === 'price' ? (
+                          <div className={styles.priceRow}>
+                            <input
+                              className={styles.input}
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              placeholder="Original $"
+                              value={deal.originalPrice}
+                              onChange={(e) =>
+                                setDeal({ ...deal, originalPrice: e.target.value })
+                              }
+                            />
+                            <input
+                              className={styles.input}
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              placeholder="Deal $"
+                              value={deal.dealPrice}
+                              onChange={(e) => setDeal({ ...deal, dealPrice: e.target.value })}
+                            />
+                          </div>
+                        ) : (
                           <input
                             className={styles.input}
                             type="number"
-                            placeholder="Original $"
-                            value={deal.originalPrice}
-                            onChange={(e) =>
-                              setDeal({ ...deal, originalPrice: e.target.value })
-                            }
-                          />
-                          <input
-                            className={styles.input}
-                            type="number"
-                            placeholder="Deal $"
-                            value={deal.dealPrice}
-                            onChange={(e) => setDeal({ ...deal, dealPrice: e.target.value })}
-                          />
-                          <input
-                            className={styles.input}
-                            type="number"
-                            placeholder="% off"
+                            inputMode="decimal"
+                            min="0"
+                            max="100"
+                            placeholder="Discount % off"
                             value={deal.discountPercent}
                             onChange={(e) =>
                               setDeal({ ...deal, discountPercent: e.target.value })
                             }
                           />
-                        </div>
+                        )}
+
                         <div className={styles.durationRow}>
                           {DURATIONS.map((d) => (
                             <button
