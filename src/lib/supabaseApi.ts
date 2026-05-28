@@ -20,7 +20,11 @@ interface BusinessRow {
   address: string | null;
   lat: number | null;
   lng: number | null;
+  website: string | null;
+  instagram: string | null;
+  phone: string | null;
   avatar_url: string | null;
+  cover_photo_url: string | null;
   follower_count: number;
 }
 
@@ -291,6 +295,7 @@ export async function fetchSavedPlaces(userId: string): Promise<SavedPlace[]> {
         type: 'social',
         category: biz.category,
         hasDeal: activeDeals.has(biz.id),
+        businessId: biz.id,
         placeName: biz.address ?? undefined,
         lat: biz.lat,
         lng: biz.lng,
@@ -386,6 +391,172 @@ export async function saveCatalogItem(
 export async function deleteCatalogItem(id: string): Promise<void> {
   if (!supabase) return;
   await supabase.from('catalog_items').delete().eq('id', id);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// BUSINESS PROFILE (everything one profile page needs, in parallel)
+// ───────────────────────────────────────────────────────────────────────────
+
+export interface ProfileBusiness {
+  id: string;
+  name: string;
+  category: string;
+  bio: string;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  website: string | null;
+  instagram: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  coverPhotoUrl: string | null;
+  followerCount: number;
+}
+
+export interface BusinessProfileBundle {
+  business: ProfileBusiness | null;
+  posts: FeedPost[];
+  deals: Deal[];
+  catalog: CatalogItem[];
+  followerCount: number;
+  isFollowing: boolean;
+  postCount: number;
+  mapSaveCount: number;
+}
+
+export async function fetchBusinessProfile(
+  businessId: string,
+  near?: { lat: number; lng: number } | null,
+  currentUserId?: string,
+): Promise<BusinessProfileBundle | null> {
+  if (!supabase) return null;
+  const sb = supabase;
+  const [bizRes, postsRes, dealsRes, catalogRes, followerRes, followingRes, savesRes] =
+    await Promise.all([
+      sb.from('businesses').select('*').eq('id', businessId).maybeSingle(),
+      sb
+        .from('posts')
+        .select('*')
+        .eq('business_id', businessId)
+        .eq('post_type', 'feed')
+        .order('created_at', { ascending: false }),
+      sb
+        .from('deals')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('expires_at', { ascending: true }),
+      sb
+        .from('catalog_items')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('sort_order', { ascending: true }),
+      sb.from('followers').select('id', { count: 'exact', head: true }).eq('business_id', businessId),
+      currentUserId
+        ? sb
+            .from('followers')
+            .select('id')
+            .eq('business_id', businessId)
+            .eq('follower_id', currentUserId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      sb
+        .from('saved_places')
+        .select('id', { count: 'exact', head: true })
+        .eq('business_id', businessId),
+    ]);
+
+  const bizRow = (bizRes.data as BusinessRow | null) ?? null;
+  if (!bizRow) return null;
+
+  const business: ProfileBusiness = {
+    id: bizRow.id,
+    name: bizRow.name,
+    category: bizRow.category,
+    bio: bizRow.bio ?? '',
+    address: bizRow.address,
+    lat: bizRow.lat,
+    lng: bizRow.lng,
+    website: bizRow.website,
+    instagram: bizRow.instagram,
+    phone: bizRow.phone,
+    avatarUrl: bizRow.avatar_url,
+    coverPhotoUrl: bizRow.cover_photo_url,
+    followerCount: bizRow.follower_count,
+  };
+
+  const posts: FeedPost[] = ((postsRes.data as PostRow[] | null) ?? []).map((row) => ({
+    id: row.id,
+    businessId,
+    businessName: business.name,
+    businessCategory: business.category,
+    businessEmoji: emojiForCategory(business.category),
+    caption: row.caption,
+    likeCount: row.like_count,
+    commentCount: 0,
+    distanceMiles: distanceMiFrom(near ?? null, { lat: business.lat, lng: business.lng }),
+    isLiked: false,
+    isPinned: false,
+    postCategory: (row.post_category as FeedPost['postCategory']) ?? 'update',
+    createdAt: new Date(row.created_at),
+    videoUrl: row.video_url ?? undefined,
+    thumbnailGradient: gradientFor(business.category),
+    lat: business.lat ?? undefined,
+    lng: business.lng ?? undefined,
+  }));
+
+  const deals: Deal[] = ((dealsRes.data as DealRow[] | null) ?? []).map((row, i) => ({
+    id: row.id,
+    businessName: business.name,
+    category: business.category,
+    emoji: emojiForCategory(business.category),
+    headline: row.headline,
+    description: row.description ?? '',
+    originalPrice: row.original_price,
+    dealPrice: row.deal_price,
+    discountPercent: row.discount_percent,
+    expiresAt: row.expires_at ? new Date(row.expires_at) : new Date(Date.now() + 4 * 3600000),
+    distanceMiles: distanceMiFrom(near ?? null, { lat: business.lat, lng: business.lng }),
+    isFeatured: i === 0,
+    stripeProductId: row.id,
+    mediaUrl: row.media_url ?? undefined,
+    mediaType: (row.media_type as 'image' | 'video' | null) ?? undefined,
+    dealCategory: row.deal_category ?? undefined,
+    lat: business.lat ?? undefined,
+    lng: business.lng ?? undefined,
+  }));
+
+  const catalog = ((catalogRes.data as CatalogRow[] | null) ?? []).map(mapCatalogRow);
+
+  return {
+    business,
+    posts,
+    deals,
+    catalog,
+    followerCount: followerRes.count ?? business.followerCount,
+    isFollowing: !!followingRes.data,
+    postCount: posts.length,
+    mapSaveCount: savesRes.count ?? 0,
+  };
+}
+
+/** Follow / unfollow a business. Returns the new isFollowing state. */
+export async function toggleFollow(
+  currentUserId: string,
+  businessId: string,
+  follow: boolean,
+): Promise<void> {
+  if (!supabase) return;
+  if (follow) {
+    await supabase
+      .from('followers')
+      .upsert({ follower_id: currentUserId, business_id: businessId }, { onConflict: 'follower_id,business_id' });
+  } else {
+    await supabase
+      .from('followers')
+      .delete()
+      .eq('follower_id', currentUserId)
+      .eq('business_id', businessId);
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────────

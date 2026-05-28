@@ -45,6 +45,10 @@ create table if not exists public.businesses (
 create index if not exists businesses_user_id_idx on public.businesses(user_id);
 create index if not exists businesses_location_idx on public.businesses(lat, lng);
 
+-- Optional wide cover photo shown at the top of the business profile.
+alter table public.businesses
+  add column if not exists cover_photo_url text;
+
 -- ============================================================================
 -- posts (video updates from a business)
 -- ============================================================================
@@ -130,6 +134,46 @@ create table if not exists public.likes (
 create index if not exists likes_post_idx on public.likes(post_id);
 
 -- ============================================================================
+-- followers (a consumer following a business)
+-- ============================================================================
+create table if not exists public.followers (
+  id          uuid primary key default gen_random_uuid(),
+  follower_id uuid not null references public.users(id) on delete cascade,
+  business_id uuid not null references public.businesses(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  unique (follower_id, business_id)
+);
+
+create index if not exists followers_business_idx on public.followers(business_id);
+create index if not exists followers_follower_idx on public.followers(follower_id);
+
+-- Keep businesses.follower_count in sync with the followers table. SECURITY
+-- DEFINER so a follower can bump a count on a business they don't own (RLS
+-- would otherwise block the UPDATE).
+create or replace function public.bump_follower_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (tg_op = 'INSERT') then
+    update public.businesses set follower_count = follower_count + 1 where id = new.business_id;
+    return new;
+  elsif (tg_op = 'DELETE') then
+    update public.businesses set follower_count = greatest(0, follower_count - 1) where id = old.business_id;
+    return old;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists followers_count_trigger on public.followers;
+create trigger followers_count_trigger
+  after insert or delete on public.followers
+  for each row execute function public.bump_follower_count();
+
+-- ============================================================================
 -- catalog_items (a business's product/service menu — shown only in-profile)
 -- ============================================================================
 create table if not exists public.catalog_items (
@@ -209,6 +253,7 @@ alter table public.posts         enable row level security;
 alter table public.deals         enable row level security;
 alter table public.saved_places  enable row level security;
 alter table public.likes         enable row level security;
+alter table public.followers     enable row level security;
 
 -- USERS: each auth user can only see and update their own row.
 drop policy if exists users_self_select on public.users;
@@ -300,6 +345,16 @@ drop policy if exists likes_self_delete on public.likes;
 create policy likes_self_delete on public.likes
   for delete using (user_id in (select id from public.users where auth_id = auth.uid()));
 
+-- FOLLOWERS: anyone can read counts; each user manages only their own follows.
+drop policy if exists followers_read on public.followers;
+create policy followers_read on public.followers for select using (true);
+
+drop policy if exists followers_self_write on public.followers;
+create policy followers_self_write on public.followers
+  for all
+  using (follower_id in (select id from public.users where auth_id = auth.uid()))
+  with check (follower_id in (select id from public.users where auth_id = auth.uid()));
+
 -- ============================================================================
 -- Realtime — add the tables the client subscribes to into the
 -- supabase_realtime publication so postgres_changes events are emitted.
@@ -330,6 +385,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'saved_places'
   ) then
     alter publication supabase_realtime add table public.saved_places;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'followers'
+  ) then
+    alter publication supabase_realtime add table public.followers;
   end if;
 end $$;
 

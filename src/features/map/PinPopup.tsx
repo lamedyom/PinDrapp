@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Navigation } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useMapStore } from '../../stores/mapStore';
@@ -22,6 +23,7 @@ export function PinPopup({ id }: PinPopupProps) {
   const setSearchedLocation = useMapStore((s) => s.setSearchedLocation);
   const searchedLocationId = useMapStore((s) => s.searchedLocation?.id ?? null);
   const setDestination = useDirectionsStore((s) => s.setDestination);
+  const navigate = useNavigate();
 
   if (!place) return null;
 
@@ -32,6 +34,21 @@ export function PinPopup({ id }: PinPopupProps) {
   const category = 'category' in place ? place.category : undefined;
   const placeName = 'placeName' in place ? place.placeName : undefined;
   const isSearched = searchedLocationId === place.id;
+
+  // Resolve the business this pin maps to. Explore pins use their id as the
+  // business id; saved pins carry an explicit businessId (home/work have none).
+  const businessId: string | undefined =
+    'distanceMiles' in place
+      ? place.id // ExploreBusiness — its id is the business id
+      : (place as { businessId?: string }).businessId; // SavedPlace (search → undefined)
+
+  const goToProfile = () => {
+    tapHaptic();
+    if (!businessId) return;
+    close();
+    if (isSearched) setSearchedLocation(null);
+    navigate(`/profile/${businessId}`);
+  };
 
   const startDirections = () => {
     tapHaptic();
@@ -66,8 +83,8 @@ export function PinPopup({ id }: PinPopupProps) {
         </button>
       </div>
       <div className={styles.actions}>
-        {!isSearched && (
-          <Button size="sm" variant="primary">
+        {!isSearched && businessId && (
+          <Button size="sm" variant="primary" onClick={goToProfile}>
             View Profile
           </Button>
         )}

@@ -19,7 +19,8 @@ const TITLE_BY_PATH: Record<string, { title?: string; showBack?: boolean }> = {
 export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const meta = TITLE_BY_PATH[location.pathname] ?? {};
-  const hideTopBar = location.pathname === '/map';
+  const isBusinessProfile = location.pathname.startsWith('/profile/');
+  const hideTopBar = location.pathname === '/map' || isBusinessProfile;
   const noScroll = location.pathname === '/map';
 
   // While active turn-by-turn navigation is running, hide the bottom nav

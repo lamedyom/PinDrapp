@@ -5,6 +5,7 @@ import { FeedScreen } from '../features/feed/FeedScreen';
 import { MapScreen } from '../features/map/MapScreen';
 import { DealsScreen } from '../features/deals/DealsScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { BusinessProfileScreen } from '../features/profile/BusinessProfileScreen';
 import { PostScreen } from '../features/post/PostScreen';
 import { SplashScreen } from '../features/auth/SplashScreen';
 import { PhoneAuth } from '../features/auth/PhoneAuth';
@@ -87,6 +88,14 @@ export function AppRoutes() {
             element={
               <PageWrap label="Profile">
                 <ProfileScreen />
+              </PageWrap>
+            }
+          />
+          <Route
+            path="/profile/:businessId"
+            element={
+              <PageWrap label="Business profile">
+                <BusinessProfileScreen />
               </PageWrap>
             }
           />

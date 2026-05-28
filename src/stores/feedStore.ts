@@ -212,6 +212,7 @@ export const useFeedStore = create<FeedState>()(
         type: 'social',
         category: post.businessCategory.toLowerCase(),
         hasDeal: false,
+        businessId: post.businessId,
         lat: post.lat ?? 40.7505,
         lng: post.lng ?? -73.9845,
       });

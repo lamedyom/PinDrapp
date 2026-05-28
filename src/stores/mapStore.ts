@@ -11,6 +11,8 @@ export interface SavedPlace {
   type: SavedPlaceType;
   category?: string;
   hasDeal?: boolean;
+  /** The business this place maps to, when it's a real business (not home/work). */
+  businessId?: string;
   /** Full geocoded address — populated when the user picks a place via search. */
   placeName?: string;
   lat: number;
@@ -94,6 +96,7 @@ const mockSavedPlaces: SavedPlace[] = [
     type: 'social',
     category: 'food',
     hasDeal: false,
+    businessId: 'b1',
     lat: 26.0177,
     lng: -80.1148,
     savedAt: new Date(),
@@ -105,6 +108,7 @@ const mockSavedPlaces: SavedPlace[] = [
     type: 'social',
     category: 'food',
     hasDeal: true,
+    businessId: 'b2',
     lat: 26.0098,
     lng: -80.1465,
     savedAt: new Date(),
@@ -116,6 +120,7 @@ const mockSavedPlaces: SavedPlace[] = [
     type: 'saved',
     category: 'shopping',
     hasDeal: false,
+    businessId: 'b4',
     lat: 26.0125,
     lng: -80.1502,
     savedAt: new Date(),

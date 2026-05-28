@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { animate, motion, useMotionValue } from 'framer-motion';
 import { useMapStore, type SavedPlace, type ExploreBusiness } from '../../stores/mapStore';
 import { Badge } from '../../components/ui/Badge';
@@ -185,10 +186,16 @@ function ExploreContent({
   places: ExploreBusiness[];
   onTap: (id: string) => void;
 }) {
+  const navigate = useNavigate();
   return (
     <div className={styles.exploreList}>
       {places.map((p) => (
-        <ExploreBusinessCard key={p.id} place={p} onTap={() => onTap(p.id)} />
+        <ExploreBusinessCard
+          key={p.id}
+          place={p}
+          onTap={() => onTap(p.id)}
+          onView={() => navigate(`/profile/${p.id}`)}
+        />
       ))}
     </div>
   );
@@ -240,9 +247,11 @@ function SavedPlaceCard({ place, onTap }: { place: SavedPlace; onTap: () => void
 function ExploreBusinessCard({
   place,
   onTap,
+  onView,
 }: {
   place: ExploreBusiness;
   onTap: () => void;
+  onView: () => void;
 }) {
   const tone =
     place.hasDeal
@@ -253,18 +262,29 @@ function ExploreBusinessCard({
 
   return (
     <div className={styles.exploreCard}>
-      <div className={styles.exploreEmoji} style={{ background: tone }}>
+      <button
+        type="button"
+        className={styles.exploreEmoji}
+        style={{ background: tone }}
+        onClick={onTap}
+        aria-label={`Show ${place.name} on map`}
+      >
         {place.emoji}
-      </div>
-      <div className={styles.exploreCopy}>
+      </button>
+      <button
+        type="button"
+        className={styles.exploreCopy}
+        onClick={onTap}
+        style={{ textAlign: 'left' }}
+      >
         <div className={styles.exploreName}>{place.name}</div>
         <div className={styles.exploreMeta}>
           {place.category} · {place.distanceMiles.toFixed(1)} mi
         </div>
-      </div>
+      </button>
       <div className={styles.exploreActions}>
         {place.hasDeal && <Badge tone="green">⚡ Deal</Badge>}
-        <Button size="sm" variant="save" onClick={onTap}>
+        <Button size="sm" variant="save" onClick={onView}>
           View
         </Button>
       </div>
