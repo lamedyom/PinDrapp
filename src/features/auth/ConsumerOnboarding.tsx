@@ -104,7 +104,7 @@ export function ConsumerOnboarding() {
           {step === 1 && (
             <>
               <h1 className={styles.title}>What's your name?</h1>
-              <p className={styles.sub}>So businesses know who's saving their pins.</p>
+              <p className={styles.sub}>This is how you'll appear on Pindrapp.</p>
 
               <div className={styles.avatarBlock}>
                 <div {...getRootProps({ className: styles.avatarDrop })}>
@@ -114,10 +114,13 @@ export function ConsumerOnboarding() {
                   ) : (
                     <div className={styles.avatarPlaceholder}>
                       <Camera size={22} />
-                      <span>Add photo</span>
+                      <span>Add a profile photo</span>
                     </div>
                   )}
                 </div>
+                <p className={styles.photoHint}>
+                  Help others recognize you in the community
+                </p>
                 <button
                   type="button"
                   className={styles.linkBtn}

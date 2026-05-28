@@ -22,6 +22,10 @@ create table if not exists public.users (
 
 create index if not exists users_auth_id_idx on public.users(auth_id);
 
+-- Short optional bio shown on a consumer's profile.
+alter table public.users
+  add column if not exists bio text;
+
 -- ============================================================================
 -- businesses (1 per business user)
 -- ============================================================================

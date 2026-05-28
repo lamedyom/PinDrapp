@@ -23,7 +23,9 @@ export function UserTypeScreen() {
     <div className={styles.screen}>
       <header className={styles.head}>
         <h1 className={styles.title}>Welcome to Pindrapp</h1>
-        <p className={styles.sub}>How will you use the app?</p>
+        <p className={styles.sub}>
+          Discover local businesses, save your favorites, and never forget a great find again.
+        </p>
       </header>
 
       <div className={styles.cards}>

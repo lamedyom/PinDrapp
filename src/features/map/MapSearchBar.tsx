@@ -3,6 +3,7 @@ import { Navigation, Search, SlidersHorizontal, X } from 'lucide-react';
 import { geocodePlaces, type GeocodingResult } from '../../lib/geocoding';
 import { useMapStore } from '../../stores/mapStore';
 import { useDirectionsStore } from '../../stores/directionsStore';
+import { searchBusinesses, type BusinessSearchResult } from '../../lib/supabaseApi';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './MapSearchBar.module.css';
 
@@ -17,6 +18,7 @@ export function MapSearchBar() {
 
   const [focused, setFocused] = useState(false);
   const [results, setResults] = useState<GeocodingResult[]>([]);
+  const [bizResults, setBizResults] = useState<BusinessSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +29,7 @@ export function MapSearchBar() {
   useEffect(() => {
     if (!searchQuery.trim()) {
       setResults([]);
+      setBizResults([]);
       setError(null);
       return;
     }
@@ -36,8 +39,10 @@ export function MapSearchBar() {
       abortRef.current = controller;
       setLoading(true);
       setError(null);
+      // Run address geocoding + Pindrapp business search in parallel.
       geocodePlaces(searchQuery, userLocation ?? undefined, controller.signal)
         .then((r) => {
+          if (controller.signal.aborted) return;
           setResults(r);
           setLoading(false);
         })
@@ -45,6 +50,13 @@ export function MapSearchBar() {
           if (err instanceof DOMException && err.name === 'AbortError') return;
           setError(err instanceof Error ? err.message : 'Search failed');
           setLoading(false);
+        });
+      searchBusinesses(searchQuery, userLocation)
+        .then((b) => {
+          if (!controller.signal.aborted) setBizResults(b);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setBizResults([]);
         });
     }, DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
@@ -62,6 +74,14 @@ export function MapSearchBar() {
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [focused]);
 
+  const reset = () => {
+    setSearchQuery('');
+    setResults([]);
+    setBizResults([]);
+    setFocused(false);
+    inputRef.current?.blur();
+  };
+
   const dropPin = (r: GeocodingResult) => {
     tapHaptic();
     setSearchedLocation({
@@ -72,10 +92,24 @@ export function MapSearchBar() {
       lat: r.lat,
       lng: r.lng,
     });
-    setSearchQuery('');
-    setResults([]);
-    setFocused(false);
-    inputRef.current?.blur();
+    reset();
+  };
+
+  // Tap a Pindrapp business: fly there, drop a pin, and open the business
+  // popup (which links through to /profile/:businessId).
+  const selectBusiness = (b: BusinessSearchResult) => {
+    tapHaptic();
+    setSearchedLocation({
+      id: b.id,
+      name: b.name,
+      placeName: b.address ?? b.category,
+      emoji: b.emoji,
+      category: b.category,
+      businessId: b.id,
+      lat: b.lat,
+      lng: b.lng,
+    });
+    reset();
   };
 
   const routeTo = (r: GeocodingResult) => {
@@ -99,7 +133,8 @@ export function MapSearchBar() {
   };
 
   const showDropdown =
-    focused && (loading || error || results.length > 0 || searchQuery.trim().length >= 2);
+    focused &&
+    (loading || error || results.length > 0 || bizResults.length > 0 || searchQuery.trim().length >= 2);
 
   return (
     <div className={styles.outer} ref={wrapRef}>
@@ -110,7 +145,7 @@ export function MapSearchBar() {
           type="text"
           inputMode="search"
           enterKeyHint="search"
-          placeholder="Search address — tap → for directions"
+          placeholder="Search businesses or addresses"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setFocused(true)}
@@ -134,6 +169,7 @@ export function MapSearchBar() {
             onClick={() => {
               setSearchQuery('');
               setResults([]);
+              setBizResults([]);
             }}
           >
             <X size={14} />
@@ -144,12 +180,48 @@ export function MapSearchBar() {
 
       {showDropdown && (
         <div className={styles.dropdown} role="listbox">
-          {loading && results.length === 0 && (
+          {loading && results.length === 0 && bizResults.length === 0 && (
             <div className={styles.statusRow}>
               <div className={styles.spinner} aria-hidden /> Searching...
             </div>
           )}
           {error && <div className={`${styles.statusRow} ${styles.errorRow}`}>{error}</div>}
+
+          {bizResults.length > 0 && (
+            <>
+              <div className={styles.sectionHeader}>📍 Businesses</div>
+              {bizResults.map((b) => (
+                <button
+                  key={`biz_${b.id}`}
+                  type="button"
+                  className={styles.result}
+                  onClick={() => selectBusiness(b)}
+                  aria-label={`Show ${b.name} on map`}
+                >
+                  <span className={`${styles.bizAvatar} ${b.isPro ? styles.bizAvatarPro : ''}`}>
+                    {b.avatarUrl ? (
+                      <img src={b.avatarUrl} alt="" className={styles.bizAvatarImg} />
+                    ) : (
+                      b.emoji
+                    )}
+                  </span>
+                  <span className={styles.resultText}>
+                    <span className={styles.resultName}>{b.name}</span>
+                    <span className={styles.resultPlace}>
+                      {[b.category, b.address].filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                  {b.isPro ? (
+                    <span className={styles.proBadge}>⭐ PRO</span>
+                  ) : b.distanceMiles != null ? (
+                    <span className={styles.bizDistance}>{b.distanceMiles.toFixed(1)} mi</span>
+                  ) : null}
+                </button>
+              ))}
+            </>
+          )}
+
+          {results.length > 0 && <div className={styles.sectionHeader}>🗺️ Places</div>}
           {results.map((r) => (
             <div key={r.id} className={styles.resultRow} role="option">
               <button
@@ -175,9 +247,13 @@ export function MapSearchBar() {
               </button>
             </div>
           ))}
-          {!loading && !error && results.length === 0 && searchQuery.trim().length >= 2 && (
-            <div className={styles.statusRow}>No matches</div>
-          )}
+          {!loading &&
+            !error &&
+            results.length === 0 &&
+            bizResults.length === 0 &&
+            searchQuery.trim().length >= 2 && (
+              <div className={styles.statusRow}>No matches</div>
+            )}
           {results.length > 0 && (
             <div className={styles.dropdownHint}>
               Tap a row to drop a pin · Tap{' '}

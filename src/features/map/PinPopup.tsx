@@ -83,7 +83,7 @@ export function PinPopup({ id }: PinPopupProps) {
         </button>
       </div>
       <div className={styles.actions}>
-        {!isSearched && businessId && (
+        {businessId && (
           <Button size="sm" variant="primary" onClick={goToProfile}>
             View Profile
           </Button>

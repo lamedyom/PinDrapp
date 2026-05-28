@@ -10,6 +10,7 @@ import type { FeedPost } from '../stores/feedStore';
 import type { Deal } from '../stores/dealStore';
 import type { CatalogItem } from '../stores/catalogStore';
 import type { SavedPlace, ExploreBusiness } from '../stores/mapStore';
+import { useMapStore } from '../stores/mapStore';
 
 interface BusinessRow {
   id: string;
@@ -284,6 +285,77 @@ export async function fetchExploreBusinesses(
       lng: b.lng ?? 0,
     }))
     .sort((a, b) => a.distanceMiles - b.distanceMiles);
+}
+
+export interface BusinessSearchResult {
+  id: string;
+  name: string;
+  category: string;
+  address: string | null;
+  lat: number;
+  lng: number;
+  avatarUrl: string | null;
+  emoji: string;
+  isPro: boolean;
+  distanceMiles: number | null;
+}
+
+/**
+ * Search Pindrapp businesses by name / category / address. Falls back to the
+ * seeded explore businesses in offline demo mode.
+ */
+export async function searchBusinesses(
+  query: string,
+  near?: { lat: number; lng: number } | null,
+): Promise<BusinessSearchResult[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+
+  if (!supabase) {
+    const ql = q.toLowerCase();
+    return useMapStore
+      .getState()
+      .explorePlaces.filter(
+        (b) => b.name.toLowerCase().includes(ql) || b.category.toLowerCase().includes(ql),
+      )
+      .slice(0, 5)
+      .map((b) => ({
+        id: b.id,
+        name: b.name,
+        category: b.category,
+        address: null,
+        lat: b.lat,
+        lng: b.lng,
+        avatarUrl: null,
+        emoji: b.emoji,
+        isPro: !!b.isPro,
+        distanceMiles: distanceMiFrom(near ?? null, { lat: b.lat, lng: b.lng }),
+      }));
+  }
+
+  // Strip characters that would break PostgREST's or() filter grammar.
+  const safe = q.replace(/[%,()]/g, ' ').trim();
+  if (!safe) return [];
+  const { data } = await supabase
+    .from('businesses')
+    .select('id, name, category, address, lat, lng, avatar_url, is_pro')
+    .or(`name.ilike.%${safe}%,category.ilike.%${safe}%,address.ilike.%${safe}%`)
+    .limit(5);
+  if (!data) return [];
+  return (data as BusinessRow[])
+    .filter((b) => b.lat != null && b.lng != null)
+    .map((b) => ({
+      id: b.id,
+      name: b.name,
+      category: b.category,
+      address: b.address,
+      lat: b.lat as number,
+      lng: b.lng as number,
+      avatarUrl: b.avatar_url,
+      emoji: emojiForCategory(b.category),
+      isPro: !!b.is_pro,
+      distanceMiles: distanceMiFrom(near ?? null, { lat: b.lat, lng: b.lng }),
+    }));
 }
 
 export async function fetchSavedPlaces(userId: string): Promise<SavedPlace[]> {
@@ -573,6 +645,53 @@ export function trackDealClaim(dealId: string): void {
     () => undefined,
     () => undefined,
   );
+}
+
+export interface FollowedBusiness {
+  businessId: string;
+  name: string;
+  category: string;
+  avatarUrl: string | null;
+  emoji: string;
+  isPro: boolean;
+}
+
+/** Businesses the given user follows (for the consumer profile). */
+export async function fetchFollowing(userId: string): Promise<FollowedBusiness[]> {
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from('followers')
+    .select('business_id, business:businesses(id, name, category, avatar_url, is_pro)')
+    .eq('follower_id', userId);
+  if (!data) return [];
+  return (data as { business_id: string; business: BusinessRow | BusinessRow[] | null }[])
+    .map((r) => {
+      const biz = relOne(r.business);
+      if (!biz) return null;
+      return {
+        businessId: biz.id,
+        name: biz.name,
+        category: biz.category,
+        avatarUrl: biz.avatar_url,
+        emoji: emojiForCategory(biz.category),
+        isPro: !!biz.is_pro,
+      } satisfies FollowedBusiness;
+    })
+    .filter(Boolean) as FollowedBusiness[];
+}
+
+/** Update a consumer's editable profile fields (name / avatar / bio). */
+export async function updateUserProfile(
+  userId: string,
+  fields: { name?: string; avatarUrl?: string | null; bio?: string | null },
+): Promise<void> {
+  if (!supabase) return;
+  const payload: Record<string, unknown> = {};
+  if (fields.name !== undefined) payload.name = fields.name;
+  if (fields.avatarUrl !== undefined) payload.avatar_url = fields.avatarUrl;
+  if (fields.bio !== undefined) payload.bio = fields.bio;
+  if (Object.keys(payload).length === 0) return;
+  await supabase.from('users').update(payload).eq('id', userId);
 }
 
 /** Follow / unfollow a business. Returns the new isFollowing state. */

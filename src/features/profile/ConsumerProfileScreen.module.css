@@ -1,0 +1,391 @@
+.screen {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 16px 40px;
+  background: var(--bg-page);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--orange);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.initials {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 24px;
+  color: #fff;
+}
+
+.identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 20px;
+  margin: 0;
+}
+
+.memberSince {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.bio {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 6px 0 0;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.headerActions > * {
+  flex: 1;
+}
+
+/* Stats */
+.stats {
+  display: flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 0;
+}
+
+.stat {
+  flex: 1;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+
+.stat:last-child {
+  border-right: none;
+}
+
+.statValue {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.statLabel {
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* Sections */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionTitle {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 14px;
+  margin: 0;
+}
+
+.emptyCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  padding: 22px 16px;
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--text-muted);
+}
+
+.emptyMsg {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Saved places horizontal row */
+.savedRow {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  padding-bottom: 4px;
+}
+
+.savedCard {
+  flex-shrink: 0;
+  width: 110px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 10px;
+  text-align: left;
+}
+
+.savedEmoji {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg-shell);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+
+.savedName {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.savedCat {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* Following grid */
+.followGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.followItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+}
+
+.followAvatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  overflow: hidden;
+}
+
+.followAvatarPro {
+  border-color: rgba(245, 158, 11, 0.7);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+}
+
+.followAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.followName {
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 60px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Deal history */
+.claimList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.claimRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.claimInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.claimHeadline {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.claimMeta {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.claimSaved {
+  flex-shrink: 0;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--green);
+}
+
+/* Edit modal */
+.editSheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.editTitle {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 18px;
+  margin: 0;
+}
+
+.editPhoto {
+  align-self: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-shell);
+  border: 1px dashed var(--border-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editPhotoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.editPhotoEmpty {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+}
+
+.editLabel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.optional {
+  opacity: 0.7;
+}
+
+.editInput,
+.editTextarea {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.editTextarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.editInput:focus,
+.editTextarea:focus {
+  border-color: var(--orange-border);
+}
+
+.counter {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.editActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.editActions > * {
+  flex: 1;
+}

@@ -44,6 +44,8 @@ export interface SearchedLocation {
   emoji: string;
   placeName?: string;
   category?: string;
+  /** Set when the searched pin is a Pindrapp business (enables View Profile). */
+  businessId?: string;
   lat: number;
   lng: number;
 }

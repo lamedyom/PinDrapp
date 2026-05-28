@@ -11,6 +11,7 @@ export interface UserProfile {
   userType: UserType | null;
   name: string;
   avatarUrl: string | null;
+  bio: string | null;
   onboarded: boolean;
 }
 
@@ -59,6 +60,11 @@ interface AuthState {
     fields: Omit<BusinessProfile, 'id' | 'userId' | 'followerCount' | 'isPro' | 'proSince'>,
   ) => Promise<void>;
   markConsumerOnboarded: () => Promise<void>;
+  updateConsumerProfile: (fields: {
+    name?: string;
+    avatarUrl?: string | null;
+    bio?: string | null;
+  }) => Promise<void>;
 }
 
 function deriveStageFor(
@@ -266,6 +272,26 @@ export const useAuthStore = create<AuthState>()(
         s.stage = deriveStageFor(s.session, { ...profile, onboarded: true }, s.business);
       });
     },
+
+    updateConsumerProfile: async (fields) => {
+      const { profile } = get();
+      // Optimistically update the local profile first.
+      set((s) => {
+        if (!s.profile) return;
+        if (fields.name !== undefined) s.profile.name = fields.name;
+        if (fields.avatarUrl !== undefined) s.profile.avatarUrl = fields.avatarUrl;
+        if (fields.bio !== undefined) s.profile.bio = fields.bio;
+      });
+      const sb = supabase;
+      if (!sb || !profile) return;
+      const payload: Record<string, unknown> = {};
+      if (fields.name !== undefined) payload.name = fields.name;
+      if (fields.avatarUrl !== undefined) payload.avatar_url = fields.avatarUrl;
+      if (fields.bio !== undefined) payload.bio = fields.bio;
+      if (Object.keys(payload).length > 0) {
+        await sb.from('users').update(payload).eq('id', profile.id);
+      }
+    },
   })),
 );
 
@@ -277,6 +303,7 @@ interface UserRow {
   user_type: UserType | null;
   name: string;
   avatar_url: string | null;
+  bio: string | null;
   onboarded: boolean;
 }
 
@@ -305,6 +332,7 @@ function rowToProfile(r: UserRow): UserProfile {
     userType: r.user_type,
     name: r.name,
     avatarUrl: r.avatar_url,
+    bio: r.bio ?? null,
     onboarded: r.onboarded,
   };
 }

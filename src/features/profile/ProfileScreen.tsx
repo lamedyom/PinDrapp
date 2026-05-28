@@ -10,8 +10,24 @@ import { isSupabaseConfigured } from '../../lib/supabase';
 import { CatalogSection } from './CatalogSection';
 import { EditProfileModal } from './EditProfileModal';
 import { SavedPlacesSection } from './SavedPlacesSection';
+import { ConsumerProfileScreen } from './ConsumerProfileScreen';
+import { GuestProfileScreen } from './GuestProfileScreen';
 import type { Deal } from '../../stores/dealStore';
 import styles from './ProfileScreen.module.css';
+
+/**
+ * Profile entry point. Renders the right experience for who's viewing:
+ *  - guest (signed out)            → sign-up prompt
+ *  - consumer (user_type=consumer) → saved places / following / deal history
+ *  - business (or demo mode)       → the business owner dashboard below
+ */
+export function ProfileScreen() {
+  const profile = useAuthStore((s) => s.profile);
+  // Logged out (only reachable when Supabase is configured) → guest prompt.
+  if (isSupabaseConfigured() && !profile) return <GuestProfileScreen />;
+  if (profile?.userType === 'consumer') return <ConsumerProfileScreen />;
+  return <BusinessOwnerProfile />;
+}
 
 type ProfileTab = 'feed' | 'deals' | 'catalog';
 
@@ -42,7 +58,7 @@ const EMPTY_PROFILE = {
   dealTemplates: [],
 };
 
-export function ProfileScreen() {
+function BusinessOwnerProfile() {
   const profile = useUserStore((s) => s.profile);
   const openEdit = useUserStore((s) => s.openEditModal);
   const updateProfile = useUserStore((s) => s.updateProfile);
