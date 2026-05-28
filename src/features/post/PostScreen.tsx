@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ImagePlus, MapPin, X } from 'lucide-react';
+import { ArrowLeft, ImagePlus, MapPin, Sparkles, X } from 'lucide-react';
 import { VideoSelector, type SelectedVideo } from './VideoSelector';
 import { useVideoUpload } from '../../hooks/useVideoUpload';
 import { useFeedStore, type FeedCategory } from '../../stores/feedStore';
 import { useDealStore, type Deal } from '../../stores/dealStore';
 import { useMapStore } from '../../stores/mapStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useCatalogStore } from '../../stores/catalogStore';
 import { AddLocationSheet, type AddedLocation } from '../places/AddLocationSheet';
 import { createDeal, createPost, uploadImage } from '../../lib/supabaseApi';
+import { AIDealAutopilot, type AIDealDraft } from './AIDealAutopilot';
+import { AIUpgradeModal } from './AIUpgradeModal';
 import styles from './PostScreen.module.css';
 
-type PostStep = 'choose' | 'update' | 'deal';
+type PostStep = 'choose' | 'update' | 'deal-chooser' | 'deal' | 'ai-autopilot';
 type PriceMode = 'price' | 'percent' | 'free';
 type DealMedia = 'video' | 'photo';
 
@@ -83,6 +86,10 @@ export function PostScreen() {
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  const catalogItems = useCatalogStore((s) => s.items);
+  const isPro = !!authBusiness?.isPro;
 
   // A template link (e.g. from a deal shortcut) jumps straight into the deal flow.
   useEffect(() => {
@@ -100,6 +107,11 @@ export function PostScreen() {
     if (state.defaultDuration) setDeal((d) => ({ ...d, duration: state.defaultDuration ?? 4 }));
     setStep('deal');
   }, [location.state]);
+
+  const handleAIAutopilot = () => {
+    if (isPro) setStep('ai-autopilot');
+    else setUpgradeOpen(true);
+  };
 
   const charCount = caption.length;
   const charOver = charCount > 130;
@@ -277,6 +289,7 @@ export function PostScreen() {
       const coords = postCoords();
       const newDeal: Deal = {
         id: realDealId ?? `d_${Date.now()}`,
+        businessId: authBusiness?.id,
         businessName: authBusiness?.name ?? 'Your Business',
         category: authBusiness?.category ?? 'Food',
         emoji: '⚡',
@@ -288,6 +301,9 @@ export function PostScreen() {
         expiresAt,
         distanceMiles: 0,
         isFeatured: false,
+        isPro,
+        viewCount: 0,
+        claimCount: 0,
         stripeProductId: `prod_${realDealId ?? Date.now()}`,
         mediaUrl,
         mediaType,
@@ -304,8 +320,82 @@ export function PostScreen() {
     }
   };
 
+  // ── AI Autopilot post: turn the AI draft into a real deal.
+  const submitAIDeal = async (draft: AIDealDraft) => {
+    setPostError(null);
+    setPosting(true);
+    try {
+      const expiresAt = new Date(Date.now() + draft.durationHours * 3600000);
+      const item = catalogItems.find((i) => i.id === draft.catalogItemId);
+      let realDealId: string | null = null;
+      if (authBusiness) {
+        try {
+          await createPost({
+            businessId: authBusiness.id,
+            caption: draft.description || draft.headline,
+            thumbnailUrl: draft.imageUrl,
+            postType: 'deal',
+          });
+          realDealId = await createDeal({
+            businessId: authBusiness.id,
+            headline: draft.headline,
+            description: draft.description,
+            originalPrice: draft.pricingType === 'fixed' ? draft.originalPrice : null,
+            dealPrice: draft.pricingType === 'fixed' ? draft.dealPrice : null,
+            discountPercent: draft.pricingType === 'percent' ? draft.discountPercent : null,
+            expiresAt,
+            mediaUrl: draft.imageUrl,
+            mediaType: 'image',
+            dealCategory: 'Flash Sale',
+          });
+        } catch (e) {
+          setPostError(
+            `Couldn't save your AI deal${e instanceof Error ? ` — ${e.message}` : ''}.`,
+          );
+          setPosting(false);
+          return;
+        }
+      }
+      const coords = postCoords();
+      addDeal({
+        id: realDealId ?? `d_${Date.now()}`,
+        businessId: authBusiness?.id,
+        businessName: authBusiness?.name ?? 'Your Business',
+        category: authBusiness?.category ?? item?.category ?? 'Food',
+        emoji: '⚡',
+        headline: draft.headline,
+        description: draft.description,
+        originalPrice: draft.pricingType === 'fixed' ? draft.originalPrice : null,
+        dealPrice: draft.pricingType === 'fixed' ? draft.dealPrice : null,
+        discountPercent: draft.pricingType === 'percent' ? draft.discountPercent : null,
+        expiresAt,
+        distanceMiles: 0,
+        isFeatured: true,
+        isPro: true,
+        viewCount: 0,
+        claimCount: 0,
+        stripeProductId: `prod_${realDealId ?? Date.now()}`,
+        mediaUrl: draft.imageUrl,
+        mediaType: 'image',
+        dealCategory: 'Flash Sale',
+        lat: coords.lat,
+        lng: coords.lng,
+      });
+      setSuccess(true);
+      window.setTimeout(() => navigate('/deals'), 1800);
+    } finally {
+      setPosting(false);
+    }
+  };
+
   const headerTitle =
-    step === 'choose' ? 'New Post' : step === 'update' ? 'New Update' : 'New Deal';
+    step === 'choose'
+      ? 'New Post'
+      : step === 'update'
+        ? 'New Update'
+        : step === 'ai-autopilot'
+          ? 'AI Autopilot'
+          : 'New Deal';
 
   return (
     <motion.div
@@ -329,16 +419,16 @@ export function PostScreen() {
           <button
             type="button"
             className={styles.backBtn}
-            onClick={() => setStep('choose')}
+            onClick={() =>
+              setStep(step === 'deal' || step === 'ai-autopilot' ? 'deal-chooser' : 'choose')
+            }
             aria-label="Back"
           >
             <ArrowLeft size={20} />
           </button>
         )}
         <h2 className={styles.title}>{headerTitle}</h2>
-        {step === 'choose' ? (
-          <span />
-        ) : (
+        {step === 'update' || step === 'deal' ? (
           <button
             type="button"
             className={styles.postBtn}
@@ -347,6 +437,8 @@ export function PostScreen() {
           >
             Post
           </button>
+        ) : (
+          <span />
         )}
       </header>
 
@@ -399,7 +491,7 @@ export function PostScreen() {
                 <button
                   type="button"
                   className={`${styles.chooserCard} ${styles.chooserCardDeal}`}
-                  onClick={() => setStep('deal')}
+                  onClick={() => setStep('deal-chooser')}
                 >
                   <span className={styles.chooserEmoji}>⚡</span>
                   <div>
@@ -410,6 +502,66 @@ export function PostScreen() {
                   </div>
                 </button>
               </div>
+            </motion.div>
+          ) : step === 'deal-chooser' ? (
+            <motion.div
+              key="deal-chooser"
+              className={styles.form}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <h3 className={styles.chooserIntro}>How do you want to build it?</h3>
+              <p className={styles.chooserSub}>
+                Flash deals are always free. Pro unlocks AI Autopilot.
+              </p>
+              <div className={styles.chooserGrid}>
+                <button
+                  type="button"
+                  className={styles.chooserCard}
+                  onClick={() => setStep('deal')}
+                >
+                  <span className={styles.chooserEmoji}>✍️</span>
+                  <div>
+                    <div className={styles.chooserCardTitle}>Create Manually</div>
+                    <div className={styles.chooserCardSub}>
+                      Pick your media, price, and duration yourself. Free for everyone.
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.chooserCard} ${styles.chooserCardAI}`}
+                  onClick={handleAIAutopilot}
+                >
+                  <span className={styles.chooserEmoji}><Sparkles size={30} /></span>
+                  <div>
+                    <div className={styles.chooserCardTitle}>
+                      AI Autopilot <span className={styles.proTag}>⭐ PRO</span>
+                    </div>
+                    <div className={styles.chooserCardSub}>
+                      AI writes the copy, makes the image, and picks the best time.
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          ) : step === 'ai-autopilot' ? (
+            <motion.div
+              key="ai"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <AIDealAutopilot
+                businessId={authBusiness?.id ?? 'demo'}
+                onPost={submitAIDeal}
+                onDiscard={() => setStep('deal-chooser')}
+                onStartOver={() => {
+                  setStep('deal-chooser');
+                  window.setTimeout(() => setStep('ai-autopilot'), 0);
+                }}
+              />
             </motion.div>
           ) : step === 'update' ? (
             <motion.div
@@ -636,6 +788,12 @@ export function PostScreen() {
         title="Where is this post from?"
         saveLabel="Use this location"
         pickOnly
+      />
+
+      <AIUpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        onTrialStarted={() => setStep('ai-autopilot')}
       />
     </motion.div>
   );

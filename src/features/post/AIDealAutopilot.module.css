@@ -1,0 +1,248 @@
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  gap: 16px;
+  text-align: center;
+  background: var(--bg-page);
+  border-radius: 16px;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 92, 26, 0.18);
+  border-top-color: var(--orange);
+}
+
+.loadingTitle {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 18px;
+  background: linear-gradient(135deg, #F59E0B, #FF5C1A);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.loadingMsg {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-height: 20px;
+}
+
+.errorCard {
+  padding: 32px 20px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.headerTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--orange);
+}
+
+.linkBtn {
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+.imageWrap {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.regenBtn {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(8px);
+}
+
+.regenBtn:disabled {
+  opacity: 0.5;
+}
+
+.regenCount {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.spin {
+  animation: aiSpin 0.9s linear infinite;
+}
+
+@keyframes aiSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.input,
+.textarea {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.textarea {
+  min-height: 56px;
+  resize: vertical;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: var(--orange-border);
+}
+
+.priceRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.toggleBtn {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  background: transparent;
+}
+
+.toggleActive {
+  background: var(--orange);
+  color: #fff;
+}
+
+.bestTimeNote {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.whyCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255, 92, 26, 0.06);
+  border: 1px solid rgba(255, 92, 26, 0.15);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.whyHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--orange);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.whyBody {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.footer > *:first-child {
+  flex-shrink: 0;
+}

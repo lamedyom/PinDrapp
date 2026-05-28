@@ -15,6 +15,7 @@ export type DealMediaType = 'image' | 'video';
 
 export interface Deal {
   id: string;
+  businessId?: string;
   businessName: string;
   category: string;
   emoji: string;
@@ -32,6 +33,10 @@ export interface Deal {
   mediaType?: DealMediaType;
   /** Flash Sale, Event Deal, Limited Offer, Bundle Deal, Clearance. */
   dealCategory?: string;
+  /** True when the owning business is on Pindrapp Pro. */
+  isPro?: boolean;
+  viewCount?: number;
+  claimCount?: number;
   lat?: number;
   lng?: number;
 }
@@ -68,6 +73,7 @@ const hrs = (n: number) => new Date(now + n * 3600000);
 const mockDeals: Deal[] = [
   {
     id: 'd1',
+    businessId: 'b1',
     businessName: "GG's Waterfront",
     category: 'Food',
     emoji: '🥩',
@@ -79,6 +85,9 @@ const mockDeals: Deal[] = [
     expiresAt: hrs(3.5),
     distanceMiles: 1.7,
     isFeatured: true,
+    isPro: true,
+    viewCount: 1284,
+    claimCount: 92,
     stripeProductId: 'prod_1',
     lat: 26.0177,
     lng: -80.1148,
@@ -102,6 +111,7 @@ const mockDeals: Deal[] = [
   },
   {
     id: 'd3',
+    businessId: 'b3',
     businessName: 'Sage Bagel & Deli',
     category: 'Bakery',
     emoji: '🥐',
@@ -113,6 +123,9 @@ const mockDeals: Deal[] = [
     expiresAt: hrs(1.5),
     distanceMiles: 0.6,
     isFeatured: false,
+    isPro: true,
+    viewCount: 642,
+    claimCount: 41,
     stripeProductId: 'prod_3',
     lat: 26.015,
     lng: -80.152,

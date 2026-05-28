@@ -1,13 +1,17 @@
+import { useEffect, useRef } from 'react';
 import { MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Deal } from '../../stores/dealStore';
 import { useDealStore } from '../../stores/dealStore';
 import { useCountdown } from '../../hooks/useCountdown';
 import { tapHaptic } from '../../lib/haptics';
+import { trackDealClaim, trackDealView } from '../../lib/supabaseApi';
 import styles from './DealCard.module.css';
 
 interface DealCardProps {
   deal: Deal;
+  /** True when this card is rendered in the "Top Deals" Pro showcase. */
+  featuredLabel?: boolean;
 }
 
 const CATEGORY_GRADIENT: Record<string, string> = {
@@ -20,18 +24,42 @@ const CATEGORY_GRADIENT: Record<string, string> = {
   Entertainment: 'linear-gradient(160deg,#1a0d2e,#2a0d3c)',
 };
 
-export function DealCard({ deal }: DealCardProps) {
+export function DealCard({ deal, featuredLabel }: DealCardProps) {
   const openCheckout = useDealStore((s) => s.openCheckout);
   const c = useCountdown(deal.expiresAt);
   const urgent = !c.isExpired && c.totalSecondsLeft < 3600;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const trackedRef = useRef(false);
+
+  // Track a view once the card is at least 50% in view.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || trackedRef.current) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5 && !trackedRef.current) {
+            trackedRef.current = true;
+            trackDealView(deal.id);
+            obs.disconnect();
+          }
+        }
+      },
+      { threshold: [0, 0.5, 1] },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [deal.id]);
 
   const bg = CATEGORY_GRADIENT[deal.category] ?? 'linear-gradient(160deg,#1a1018,#0d1118)';
 
   return (
     <motion.div
+      ref={cardRef}
       className={[
         styles.card,
         deal.isFeatured ? styles.featured : '',
+        deal.isPro ? styles.pro : '',
         urgent ? styles.urgent : '',
         c.isExpired ? styles.expired : '',
       ]
@@ -40,6 +68,11 @@ export function DealCard({ deal }: DealCardProps) {
       layout
     >
       <div className={styles.media} style={{ background: bg }}>
+        {featuredLabel ? (
+          <span className={styles.featuredBadge}>★ FEATURED</span>
+        ) : deal.isPro ? (
+          <span className={styles.proDot}>⭐ PRO</span>
+        ) : null}
         {deal.mediaUrl && deal.mediaType === 'video' ? (
           <video
             className={styles.mediaEl}
@@ -87,6 +120,7 @@ export function DealCard({ deal }: DealCardProps) {
             disabled={c.isExpired}
             onClick={() => {
               tapHaptic();
+              trackDealClaim(deal.id);
               openCheckout(deal.id);
             }}
           >

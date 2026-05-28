@@ -28,6 +28,9 @@ export interface BusinessProfile {
   phone: string | null;
   avatarUrl: string | null;
   followerCount: number;
+  /** Pro subscriber — unlocks AI Autopilot, analytics, priority placement. */
+  isPro: boolean;
+  proSince: Date | null;
 }
 
 /** What stage of the auth/onboarding flow we are at. */
@@ -53,7 +56,7 @@ interface AuthState {
   refreshProfile: () => Promise<void>;
   setUserType: (type: UserType) => Promise<void>;
   saveBusinessProfile: (
-    fields: Omit<BusinessProfile, 'id' | 'userId' | 'followerCount'>,
+    fields: Omit<BusinessProfile, 'id' | 'userId' | 'followerCount' | 'isPro' | 'proSince'>,
   ) => Promise<void>;
   markConsumerOnboarded: () => Promise<void>;
 }
@@ -291,6 +294,8 @@ interface BusinessRow {
   phone: string | null;
   avatar_url: string | null;
   follower_count: number;
+  is_pro: boolean | null;
+  pro_since: string | null;
 }
 
 function rowToProfile(r: UserRow): UserProfile {
@@ -319,6 +324,8 @@ function rowToBusiness(r: BusinessRow): BusinessProfile {
     phone: r.phone,
     avatarUrl: r.avatar_url,
     followerCount: r.follower_count,
+    isPro: !!r.is_pro,
+    proSince: r.pro_since ? new Date(r.pro_since) : null,
   };
 }
 

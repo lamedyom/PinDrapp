@@ -13,6 +13,7 @@ export function StoryRail() {
       name: string;
       emoji: string;
       isLive: boolean;
+      isPro: boolean;
     }[] = [];
     for (const p of posts) {
       if (seen.has(p.businessId)) continue;
@@ -23,6 +24,7 @@ export function StoryRail() {
         name: p.businessName,
         emoji: p.businessEmoji,
         isLive: !!p.isLive,
+        isPro: !!p.isPro,
       });
     }
     return out;
@@ -48,6 +50,7 @@ export function StoryRail() {
             <div
               className={[
                 styles.ring,
+                b.isPro ? styles.ringPro : '',
                 b.isLive ? styles.ringLive : '',
               ]
                 .filter(Boolean)

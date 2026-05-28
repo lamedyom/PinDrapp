@@ -37,6 +37,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ToggleSwitch } from './ToggleSwitch';
 import { CatalogItemForm } from './CatalogItemForm';
+import { DealAnalytics } from './DealAnalytics';
 import { EditProfileModal } from './EditProfileModal';
 import catalogStyles from './CatalogSection.module.css';
 import styles from './BusinessProfileScreen.module.css';
@@ -209,7 +210,7 @@ export function BusinessProfileScreen() {
     );
   }
 
-  const verified = followerCount >= 500;
+  const isPro = !!business.isPro;
   const deals = data?.deals ?? [];
   const posts = data?.posts ?? [];
   const now = Date.now();
@@ -247,7 +248,7 @@ export function BusinessProfileScreen() {
       <div className={styles.identity}>
         <h1 className={styles.name}>
           {business.name}
-          {verified && <span className={styles.verified} title="Verified">✓</span>}
+          {isPro && <span className={styles.proPill} title="Pindrapp Pro">⭐ PRO</span>}
         </h1>
         <div className={styles.category}>{business.category.toUpperCase()}</div>
         {business.bio && <p className={styles.bio}>{business.bio}</p>}
@@ -379,6 +380,7 @@ export function BusinessProfileScreen() {
 
         {tab === 'deals' && (
           <div className={styles.dealsList}>
+            {isOwner && isPro && deals.length > 0 && <DealAnalytics deals={deals} />}
             {activeDeals.length === 0 && pastDeals.length === 0 && (
               <div className={styles.emptyNote}>No deals posted yet</div>
             )}
@@ -687,6 +689,13 @@ function resolveMock(businessId: string): BusinessProfileBundle | null {
   const lat = posts[0]?.lat ?? explore?.lat ?? saved?.lat ?? null;
   const lng = posts[0]?.lng ?? explore?.lng ?? saved?.lng ?? null;
 
+  const isPro =
+    posts[0]?.isPro ??
+    explore?.isPro ??
+    saved?.isPro ??
+    useDealStore.getState().deals.some((d) => d.businessName === name && d.isPro) ??
+    false;
+
   const business: ProfileBusiness = {
     id: businessId,
     name,
@@ -700,7 +709,8 @@ function resolveMock(businessId: string): BusinessProfileBundle | null {
     phone: '+1 (954) 555-0142',
     avatarUrl: null,
     coverPhotoUrl: null,
-    followerCount: 128,
+    followerCount: isPro ? 612 : 128,
+    isPro,
   };
 
   const deals = useDealStore.getState().deals.filter((d) => d.businessName === name);

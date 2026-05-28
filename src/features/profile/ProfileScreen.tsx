@@ -134,7 +134,10 @@ export function ProfileScreen() {
       </div>
 
       <div className={styles.identity}>
-        <h1 className={styles.name}>{effective.name || 'Your Business'}</h1>
+        <h1 className={styles.name}>
+          {effective.name || 'Your Business'}
+          {authBusiness?.isPro && <span className={styles.proPill}>⭐ PRO</span>}
+        </h1>
         <div className={styles.category}>{(effective.category || 'Business').toUpperCase()}</div>
         <div className={styles.locationRow}>
           <MapPin size={12} /> {effective.address || 'No address set'}

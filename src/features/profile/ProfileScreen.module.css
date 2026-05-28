@@ -83,6 +83,23 @@
   font-weight: 800;
   font-size: 18px;
   margin: 4px 0 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: linear-gradient(135deg, #F59E0B, #FFC960);
+  color: #1a1000;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  padding: 3px 7px;
+  border-radius: 6px;
 }
 
 .category {

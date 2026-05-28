@@ -37,6 +37,12 @@
   border-color: var(--green-border);
 }
 
+/* Pro outline — stacks on top of any tone with a gold halo. */
+.pro {
+  border-color: rgba(245, 158, 11, 0.7);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18), 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
 .bubbleEmoji {
   font-size: 16px;
   line-height: 1;
@@ -131,6 +137,10 @@
 .explore_green {
   background: var(--green);
   color: #001a0d;
+}
+
+.explorePro {
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7), 0 4px 12px rgba(245, 158, 11, 0.25);
 }
 
 .userDotWrap {

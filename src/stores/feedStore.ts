@@ -33,6 +33,7 @@ export interface FeedPost {
   videoUrl?: string;
   thumbnailGradient: string;
   isLive?: boolean;
+  isPro?: boolean;
   lat?: number;
   lng?: number;
 }
@@ -68,6 +69,7 @@ const mockPosts: FeedPost[] = [
     distanceMiles: 1.7,
     isLiked: false,
     isPinned: true,
+    isPro: true,
     postCategory: 'behindTheScenes',
     createdAt: new Date(Date.now() - 3600000),
     thumbnailGradient: 'linear-gradient(160deg,#1a0d2e,#0d1f3c)',
@@ -105,6 +107,7 @@ const mockPosts: FeedPost[] = [
     distanceMiles: 0.6,
     isLiked: true,
     isPinned: false,
+    isPro: true,
     postCategory: 'newStock',
     createdAt: new Date(Date.now() - 10800000),
     thumbnailGradient: 'linear-gradient(160deg,#2a1a00,#1a1000)',
@@ -159,6 +162,7 @@ const mockPosts: FeedPost[] = [
     distanceMiles: 0.4,
     isLiked: false,
     isPinned: false,
+    isPro: true,
     postCategory: 'announcement',
     createdAt: new Date(Date.now() - 21600000),
     thumbnailGradient: 'linear-gradient(160deg,#1a1000,#2a1a00)',

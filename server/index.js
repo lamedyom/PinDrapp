@@ -1,4 +1,4 @@
-// Pindrapp Stripe payment intent server
+// Pindrapp API server: Stripe payments + Pro subscriptions + AI Deal Autopilot.
 // Run with: npm run dev:server (from project root)
 const express = require('express');
 const Stripe = require('stripe');
@@ -7,19 +7,57 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '.env'), override: true });
 
+const { registerSubscriptionRoutes } = require('./subscription');
+const aiDealRoutes = require('./aiDeal');
+const { startScheduler } = require('./scheduler');
+
+// ── Stripe
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 if (!stripeSecret || stripeSecret.startsWith('your_')) {
-  console.warn('[server] STRIPE_SECRET_KEY missing — endpoints will return 503');
+  console.warn('[server] STRIPE_SECRET_KEY missing — payment endpoints will return 503');
 }
-
 const stripe = stripeSecret && !stripeSecret.startsWith('your_') ? Stripe(stripeSecret) : null;
 
+// ── Supabase (service role — server-side writes bypass RLS)
+let supabase = null;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (supabaseUrl && serviceKey) {
+  const { createClient } = require('@supabase/supabase-js');
+  supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+} else {
+  console.warn('[server] SUPABASE_SERVICE_ROLE_KEY missing — AI/subscription endpoints limited');
+}
+
+// ── Anthropic (Claude) + Replicate for AI Autopilot
+let anthropic = null;
+if (process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY.startsWith('your_')) {
+  const Anthropic = require('@anthropic-ai/sdk');
+  anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+}
+let replicate = null;
+if (process.env.REPLICATE_API_TOKEN && !process.env.REPLICATE_API_TOKEN.startsWith('your_')) {
+  const Replicate = require('replicate');
+  replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
+}
+
 const app = express();
-app.use(cors({ origin: 'http://localhost:5173' }));
+const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+app.use(cors({ origin: allowedOrigin }));
+
+// The Stripe webhook needs the raw body, so register subscription routes
+// (which mount /api/webhook with a raw parser) BEFORE the global JSON parser.
+registerSubscriptionRoutes(app, { stripe, supabase });
+
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, stripe: !!stripe });
+  res.json({
+    ok: true,
+    stripe: !!stripe,
+    supabase: !!supabase,
+    ai: !!(anthropic && replicate),
+  });
 });
 
 app.post('/api/create-payment-intent', async (req, res) => {
@@ -43,6 +81,12 @@ app.post('/api/create-payment-intent', async (req, res) => {
     res.status(400).json({ error: message });
   }
 });
+
+// AI Deal Autopilot
+app.use('/api/ai', aiDealRoutes({ supabase, anthropic, replicate }));
+
+// Background worker that publishes scheduled (AI-scheduled) deals.
+startScheduler(supabase);
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {

@@ -13,6 +13,7 @@ export interface SavedPlace {
   hasDeal?: boolean;
   /** The business this place maps to, when it's a real business (not home/work). */
   businessId?: string;
+  isPro?: boolean;
   /** Full geocoded address — populated when the user picks a place via search. */
   placeName?: string;
   lat: number;
@@ -27,6 +28,7 @@ export interface ExploreBusiness {
   category: string;
   distanceMiles: number;
   hasDeal: boolean;
+  isPro?: boolean;
   lat: number;
   lng: number;
 }
@@ -95,8 +97,9 @@ const mockSavedPlaces: SavedPlace[] = [
     emoji: '🥩',
     type: 'social',
     category: 'food',
-    hasDeal: false,
+    hasDeal: true,
     businessId: 'b1',
+    isPro: true,
     lat: 26.0177,
     lng: -80.1148,
     savedAt: new Date(),
@@ -129,8 +132,8 @@ const mockSavedPlaces: SavedPlace[] = [
 
 const mockExplorePlaces: ExploreBusiness[] = [
   { id: 'e1', name: 'Solo Pizza Napoletana', emoji: '🍕', category: 'Food', distanceMiles: 0.3, hasDeal: false, lat: 26.0107, lng: -80.148 },
-  { id: 'e2', name: 'Sage Bagel & Deli', emoji: '🥐', category: 'Bakery', distanceMiles: 0.6, hasDeal: true, lat: 26.015, lng: -80.152 },
-  { id: 'e3', name: 'Tap 42 Hollywood', emoji: '☕', category: 'Coffee', distanceMiles: 0.4, hasDeal: false, lat: 26.0095, lng: -80.1455 },
+  { id: 'e2', name: 'Sage Bagel & Deli', emoji: '🥐', category: 'Bakery', distanceMiles: 0.6, hasDeal: true, isPro: true, lat: 26.015, lng: -80.152 },
+  { id: 'e3', name: 'Tap 42 Hollywood', emoji: '☕', category: 'Coffee', distanceMiles: 0.4, hasDeal: false, isPro: true, lat: 26.0095, lng: -80.1455 },
   { id: 'e4', name: 'Hollywood Meat Market', emoji: '🔪', category: 'Market', distanceMiles: 0.9, hasDeal: false, lat: 26.008, lng: -80.1545 },
   { id: 'e5', name: 'Vino & Vine Wine Bar', emoji: '🍷', category: 'Wine', distanceMiles: 0.5, hasDeal: true, lat: 26.0135, lng: -80.145 },
   { id: 'e6', name: 'Sushi Song Hollywood', emoji: '🍣', category: 'Japanese', distanceMiles: 0.8, hasDeal: false, lat: 26.0162, lng: -80.1395 },

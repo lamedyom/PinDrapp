@@ -17,7 +17,7 @@ export function SavedPin({ place, onClick }: SavedPinProps) {
   return (
     <button type="button" className={styles.pinBtn} onClick={onClick} aria-label={place.name}>
       <motion.div
-        className={`${styles.bubble} ${styles[`bubble_${tone}`]}`}
+        className={`${styles.bubble} ${styles[`bubble_${tone}`]} ${place.isPro ? styles.pro : ''}`}
         whileTap={{ scale: 0.96 }}
         animate={tone === 'deal' ? { scale: [1, 1.05, 1] } : { scale: 1 }}
         transition={tone === 'deal' ? { duration: 2, repeat: Infinity } : { duration: 0.2 }}
@@ -51,7 +51,9 @@ export function ExplorePin({ place, onClick }: ExplorePinProps) {
   const initial = place.name.charAt(0).toUpperCase();
   return (
     <button type="button" className={styles.exploreBtn} onClick={onClick} aria-label={place.name}>
-      <div className={`${styles.explore} ${styles[`explore_${tone}`]}`}>
+      <div
+        className={`${styles.explore} ${styles[`explore_${tone}`]} ${place.isPro ? styles.explorePro : ''}`}
+      >
         <span>{initial}</span>
       </div>
     </button>

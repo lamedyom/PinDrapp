@@ -20,6 +20,47 @@
   opacity: 0.55;
 }
 
+/* Subtle gold border when the owning business is on Pindrapp Pro. */
+.pro {
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.05);
+}
+
+.proDot {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  color: #F59E0B;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  padding: 3px 6px;
+  border-radius: 6px;
+  z-index: 2;
+  backdrop-filter: blur(4px);
+}
+
+.featuredBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: linear-gradient(135deg, #F59E0B, #FFB347);
+  color: #1a1000;
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  padding: 4px 7px;
+  border-radius: 6px;
+  z-index: 2;
+}
+
 .media {
   position: relative;
   height: 140px;

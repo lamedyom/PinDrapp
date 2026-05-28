@@ -49,6 +49,22 @@ create index if not exists businesses_location_idx on public.businesses(lat, lng
 alter table public.businesses
   add column if not exists cover_photo_url text;
 
+-- Pro tier — visibility / AI / analytics. Free businesses get full flash-deal
+-- and feed access; Pro adds verified badge, priority placement, AI Autopilot.
+alter table public.businesses
+  add column if not exists is_pro boolean not null default false;
+alter table public.businesses
+  add column if not exists pro_since timestamptz;
+alter table public.businesses
+  add column if not exists stripe_customer_id text;
+alter table public.businesses
+  add column if not exists stripe_subscription_id text;
+
+-- Drop the deprecated deals-per-month limit column if a prior schema had it.
+alter table public.businesses drop column if exists deals_this_month;
+
+create index if not exists businesses_is_pro_idx on public.businesses(is_pro);
+
 -- ============================================================================
 -- posts (video updates from a business)
 -- ============================================================================
@@ -106,6 +122,32 @@ alter table public.deals
   check (media_type in ('image', 'video'));
 alter table public.deals
   add column if not exists deal_category text;
+
+-- Per-deal analytics for the Pro dashboard.
+alter table public.deals
+  add column if not exists view_count integer not null default 0;
+alter table public.deals
+  add column if not exists claim_count integer not null default 0;
+
+-- Atomic increment helpers. SECURITY DEFINER so any viewer can bump the
+-- counter on a deal they don't own (RLS would otherwise block the UPDATE).
+create or replace function public.increment_deal_views(deal_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.deals set view_count = view_count + 1 where id = deal_id;
+$$;
+
+create or replace function public.increment_deal_claims(deal_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.deals set claim_count = claim_count + 1 where id = deal_id;
+$$;
 
 -- ============================================================================
 -- saved_places (a consumer pinning a business to their map)
@@ -194,6 +236,43 @@ create table if not exists public.catalog_items (
 create index if not exists catalog_items_business_id_idx on public.catalog_items(business_id);
 
 alter table public.catalog_items enable row level security;
+
+-- ============================================================================
+-- scheduled_posts (Pro AI Autopilot — deals queued for a future post time)
+-- ============================================================================
+create table if not exists public.scheduled_posts (
+  id            uuid primary key default gen_random_uuid(),
+  business_id   uuid not null references public.businesses(id) on delete cascade,
+  deal_data     jsonb not null,
+  image_url     text,
+  scheduled_for timestamptz not null,
+  status        text not null default 'pending'
+    check (status in ('pending', 'posted', 'cancelled')),
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists scheduled_posts_due_idx
+  on public.scheduled_posts(status, scheduled_for);
+
+alter table public.scheduled_posts enable row level security;
+
+drop policy if exists scheduled_owner_write on public.scheduled_posts;
+create policy scheduled_owner_write on public.scheduled_posts
+  for all
+  using (
+    business_id in (
+      select b.id from public.businesses b
+      join public.users u on u.id = b.user_id
+      where u.auth_id = auth.uid()
+    )
+  )
+  with check (
+    business_id in (
+      select b.id from public.businesses b
+      join public.users u on u.id = b.user_id
+      where u.auth_id = auth.uid()
+    )
+  );
 
 drop policy if exists catalog_read on public.catalog_items;
 create policy catalog_read on public.catalog_items for select using (true);
@@ -405,6 +484,19 @@ insert into storage.buckets (id, name, public)
 insert into storage.buckets (id, name, public)
   values ('videos', 'videos', true)
   on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+  values ('deal-images', 'deal-images', true)
+  on conflict (id) do nothing;
+
+drop policy if exists deal_images_public_read on storage.objects;
+create policy deal_images_public_read on storage.objects
+  for select using (bucket_id = 'deal-images');
+
+drop policy if exists deal_images_authed_write on storage.objects;
+create policy deal_images_authed_write on storage.objects
+  for insert
+  with check (bucket_id = 'deal-images' and auth.role() = 'authenticated');
 
 -- Anyone can read avatars/videos (public buckets). Authed users can upload
 -- their own.

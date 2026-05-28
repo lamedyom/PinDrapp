@@ -26,6 +26,8 @@ interface BusinessRow {
   avatar_url: string | null;
   cover_photo_url: string | null;
   follower_count: number;
+  is_pro: boolean | null;
+  pro_since: string | null;
 }
 
 interface PostRow {
@@ -54,6 +56,8 @@ interface DealRow {
   media_url: string | null;
   media_type: string | null;
   deal_category: string | null;
+  view_count: number | null;
+  claim_count: number | null;
   created_at: string;
   business: BusinessRow | BusinessRow[] | null;
 }
@@ -162,6 +166,7 @@ export async function fetchFeed(
       }),
       isLiked: likedPostIds.has(row.id),
       isPinned: biz ? pinnedBusinessIds.has(biz.id) : false,
+      isPro: !!biz?.is_pro,
       postCategory: (row.post_category as FeedPost['postCategory']) ?? 'update',
       createdAt: new Date(row.created_at),
       videoUrl: row.video_url ?? undefined,
@@ -224,6 +229,10 @@ export async function fetchDeals(
       mediaUrl: row.media_url ?? undefined,
       mediaType: (row.media_type as 'image' | 'video' | null) ?? undefined,
       dealCategory: row.deal_category ?? undefined,
+      isPro: !!biz?.is_pro,
+      viewCount: row.view_count ?? 0,
+      claimCount: row.claim_count ?? 0,
+      businessId: row.business_id,
       lat: biz?.lat ?? undefined,
       lng: biz?.lng ?? undefined,
     } satisfies Deal;
@@ -256,7 +265,7 @@ export async function fetchExploreBusinesses(
   if (!supabase) return [];
   const { data } = await supabase
     .from('businesses')
-    .select('id, name, category, lat, lng')
+    .select('id, name, category, lat, lng, is_pro')
     .order('created_at', { ascending: false })
     .limit(60);
   if (!data) return [];
@@ -270,6 +279,7 @@ export async function fetchExploreBusinesses(
       category: b.category,
       distanceMiles: distanceMiFrom(near ?? null, { lat: b.lat, lng: b.lng }),
       hasDeal: activeDeals.has(b.id),
+      isPro: !!b.is_pro,
       lat: b.lat ?? 0,
       lng: b.lng ?? 0,
     }))
@@ -296,6 +306,7 @@ export async function fetchSavedPlaces(userId: string): Promise<SavedPlace[]> {
         category: biz.category,
         hasDeal: activeDeals.has(biz.id),
         businessId: biz.id,
+        isPro: !!biz.is_pro,
         placeName: biz.address ?? undefined,
         lat: biz.lat,
         lng: biz.lng,
@@ -411,6 +422,7 @@ export interface ProfileBusiness {
   avatarUrl: string | null;
   coverPhotoUrl: string | null;
   followerCount: number;
+  isPro: boolean;
 }
 
 export interface BusinessProfileBundle {
@@ -482,6 +494,7 @@ export async function fetchBusinessProfile(
     avatarUrl: bizRow.avatar_url,
     coverPhotoUrl: bizRow.cover_photo_url,
     followerCount: bizRow.follower_count,
+    isPro: !!bizRow.is_pro,
   };
 
   const posts: FeedPost[] = ((postsRes.data as PostRow[] | null) ?? []).map((row) => ({
@@ -496,6 +509,7 @@ export async function fetchBusinessProfile(
     distanceMiles: distanceMiFrom(near ?? null, { lat: business.lat, lng: business.lng }),
     isLiked: false,
     isPinned: false,
+    isPro: business.isPro,
     postCategory: (row.post_category as FeedPost['postCategory']) ?? 'update',
     createdAt: new Date(row.created_at),
     videoUrl: row.video_url ?? undefined,
@@ -521,6 +535,10 @@ export async function fetchBusinessProfile(
     mediaUrl: row.media_url ?? undefined,
     mediaType: (row.media_type as 'image' | 'video' | null) ?? undefined,
     dealCategory: row.deal_category ?? undefined,
+    isPro: business.isPro,
+    viewCount: row.view_count ?? 0,
+    claimCount: row.claim_count ?? 0,
+    businessId: business.id,
     lat: business.lat ?? undefined,
     lng: business.lng ?? undefined,
   }));
@@ -537,6 +555,24 @@ export async function fetchBusinessProfile(
     postCount: posts.length,
     mapSaveCount: savesRes.count ?? 0,
   };
+}
+
+/** Fire-and-forget view tracking — called when a deal card scrolls into view. */
+export function trackDealView(dealId: string): void {
+  if (!supabase) return;
+  void supabase.rpc('increment_deal_views', { deal_id: dealId }).then(
+    () => undefined,
+    () => undefined,
+  );
+}
+
+/** Bump the claim counter when a user starts checkout on a deal. */
+export function trackDealClaim(dealId: string): void {
+  if (!supabase) return;
+  void supabase.rpc('increment_deal_claims', { deal_id: dealId }).then(
+    () => undefined,
+    () => undefined,
+  );
 }
 
 /** Follow / unfollow a business. Returns the new isFollowing state. */
