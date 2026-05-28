@@ -2,8 +2,46 @@ import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { showToast } from './toastStore';
 
 export type UserType = 'business' | 'consumer';
+
+// How long we'll wait for Supabase before giving up and entering offline mode.
+const AUTH_INIT_TIMEOUT_MS = 5000;
+
+/** Resolve `promise`, or `fallback` if it doesn't settle within `ms`. */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(fallback);
+      }
+    }, ms);
+    promise.then(
+      (v) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(v);
+        }
+      },
+      () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(fallback);
+        }
+      },
+    );
+  });
+}
+
+// Guard so React StrictMode's double-effect (and any re-mounts) can't kick off
+// two getSession calls / two onAuthStateChange subscriptions.
+let authInitStarted = false;
+
 
 export interface UserProfile {
   id: string;
@@ -89,25 +127,60 @@ export const useAuthStore = create<AuthState>()(
     error: null,
 
     initialize: async () => {
+      if (authInitStarted) return;
+      authInitStarted = true;
+
       if (!isSupabaseConfigured() || !supabase) {
+        // eslint-disable-next-line no-console
+        console.log('[pindrapp] Supabase not configured — running on mock data');
         set((s) => {
           s.stage = 'disabled';
         });
         return;
       }
       const sb = supabase;
-      try {
-        const { data } = await sb.auth.getSession();
-        const session = data.session;
-        let profile: UserProfile | null = null;
-        let business: BusinessProfile | null = null;
+      // eslint-disable-next-line no-console
+      console.log('[pindrapp] starting auth init…');
 
-        if (session) {
-          profile = await loadProfile(session.user.id);
-          if (profile?.userType === 'business') {
-            business = await loadBusiness(profile.id);
+      // Race the entire session+profile load against a hard timeout. If
+      // Supabase is unreachable (network blocked, project paused, slow auth
+      // lock), the timeout wins and we drop into offline/guest mode rather
+      // than freezing on the splash forever.
+      const TIMED_OUT = Symbol('timeout');
+      const loaded = await withTimeout(
+        (async () => {
+          const { data } = await sb.auth.getSession();
+          const session = data.session;
+          // eslint-disable-next-line no-console
+          console.log('[pindrapp] session result:', session ? 'signed in' : 'no session');
+          let profile: UserProfile | null = null;
+          let business: BusinessProfile | null = null;
+          if (session) {
+            profile = await loadProfile(session.user.id);
+            // eslint-disable-next-line no-console
+            console.log('[pindrapp] profile loaded:', profile?.userType ?? 'none');
+            if (profile?.userType === 'business') {
+              business = await loadBusiness(profile.id);
+            }
           }
-        }
+          return { session, profile, business };
+        })(),
+        AUTH_INIT_TIMEOUT_MS,
+        TIMED_OUT as unknown as { session: Session | null; profile: UserProfile | null; business: BusinessProfile | null },
+      );
+
+      if ((loaded as unknown) === TIMED_OUT) {
+        // eslint-disable-next-line no-console
+        console.warn('[pindrapp] auth init timed out — entering offline mode');
+        set((s) => {
+          s.stage = 'disabled';
+          s.error = 'auth-timeout';
+        });
+        showToast('Running in offline mode');
+      } else {
+        const { session, profile, business } = loaded;
+        // eslint-disable-next-line no-console
+        console.log('[pindrapp] auth init done →', deriveStageFor(session, profile, business));
         set((s) => {
           s.session = session;
           s.authUser = session?.user ?? null;
@@ -115,56 +188,51 @@ export const useAuthStore = create<AuthState>()(
           s.business = business;
           s.stage = deriveStageFor(session, profile, business);
         });
-      } catch (err) {
-        // A Supabase outage / network failure must never strand the app in
-        // the 'loading' state. Fall through to unauthenticated so the splash
-        // renders and the user can retry.
-        // eslint-disable-next-line no-console
-        console.error('[pindrapp] auth init failed:', err);
-        set((s) => {
-          s.session = null;
-          s.authUser = null;
-          s.profile = null;
-          s.business = null;
-          s.stage = 'unauthenticated';
-          s.error = err instanceof Error ? err.message : 'Auth init failed';
-        });
       }
 
-      sb.auth.onAuthStateChange(async (event, sess) => {
-        try {
-          if (event === 'SIGNED_OUT' || !sess) {
-            set((s) => {
-              s.session = null;
-              s.authUser = null;
-              s.profile = null;
-              s.business = null;
-              s.stage = 'unauthenticated';
-            });
-            return;
-          }
-          const p = await loadProfile(sess.user.id);
-          const b = p?.userType === 'business' ? await loadBusiness(p.id) : null;
-          set((s) => {
-            s.session = sess;
-            s.authUser = sess.user;
-            s.profile = p;
-            s.business = b;
-            s.stage = deriveStageFor(sess, p, b);
-          });
-        } catch (err) {
-          // Don't let a failed profile fetch blank the app — keep the session
-          // but route to onboarding (no profile) rather than crashing.
-          // eslint-disable-next-line no-console
-          console.error('[pindrapp] auth state change failed:', err);
-          set((s) => {
-            s.session = sess ?? null;
-            s.authUser = sess?.user ?? null;
-            s.profile = null;
-            s.business = null;
-            s.stage = sess ? 'pickingType' : 'unauthenticated';
-          });
-        }
+      // Keep the app in sync with future auth changes. The body is deferred
+      // out of the callback with setTimeout(0): supabase-js holds an internal
+      // lock while the callback runs, and making DB/auth calls inside it can
+      // deadlock. Deferring releases the lock first.
+      sb.auth.onAuthStateChange((event, sess) => {
+        setTimeout(() => {
+          void (async () => {
+            try {
+              if (event === 'SIGNED_OUT' || !sess) {
+                set((s) => {
+                  s.session = null;
+                  s.authUser = null;
+                  s.profile = null;
+                  s.business = null;
+                  s.stage = 'unauthenticated';
+                });
+                return;
+              }
+              const p = await withTimeout(loadProfile(sess.user.id), AUTH_INIT_TIMEOUT_MS, null);
+              const b =
+                p?.userType === 'business'
+                  ? await withTimeout(loadBusiness(p.id), AUTH_INIT_TIMEOUT_MS, null)
+                  : null;
+              set((s) => {
+                s.session = sess;
+                s.authUser = sess.user;
+                s.profile = p;
+                s.business = b;
+                s.stage = deriveStageFor(sess, p, b);
+              });
+            } catch (err) {
+              // eslint-disable-next-line no-console
+              console.error('[pindrapp] auth state change failed:', err);
+              set((s) => {
+                s.session = sess ?? null;
+                s.authUser = sess?.user ?? null;
+                s.profile = null;
+                s.business = null;
+                s.stage = sess ? 'pickingType' : 'unauthenticated';
+              });
+            }
+          })();
+        }, 0);
       });
     },
 

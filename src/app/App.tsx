@@ -45,10 +45,14 @@ export default function App() {
   });
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[pindrapp] App mounting…');
     if (typeof document === 'undefined' || !document.fonts) return;
-    document.fonts.ready.then(() => setFontsReady(true));
-    const fallback = window.setTimeout(() => setFontsReady(true), 2000);
-    return () => window.clearTimeout(fallback);
+    // Never let font loading gate the app — whichever settles first wins.
+    Promise.race([
+      document.fonts.ready,
+      new Promise((resolve) => window.setTimeout(resolve, 3000)),
+    ]).then(() => setFontsReady(true));
   }, []);
 
   const inner = (

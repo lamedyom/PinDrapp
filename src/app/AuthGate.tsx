@@ -7,6 +7,7 @@ import { UserTypeScreen } from '../features/auth/UserTypeScreen';
 import { BusinessOnboarding } from '../features/auth/BusinessOnboarding';
 import { ConsumerOnboarding } from '../features/auth/ConsumerOnboarding';
 import { useBootstrap } from '../hooks/useBootstrap';
+import { showToast } from '../stores/toastStore';
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -31,6 +32,21 @@ export function AuthGate({ children }: AuthGateProps) {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Ultimate safety net: nothing may keep the user on the loading splash for
+  // more than 8s. If auth init is still pending (e.g. Supabase totally
+  // unreachable), force into offline mode so the app renders.
+  useEffect(() => {
+    const hardTimeout = window.setTimeout(() => {
+      if (useAuthStore.getState().stage === 'loading') {
+        // eslint-disable-next-line no-console
+        console.warn('[pindrapp] hard timeout (8s) — forcing past loading');
+        useAuthStore.setState({ stage: 'disabled' });
+        showToast('Running in offline mode');
+      }
+    }, 8000);
+    return () => window.clearTimeout(hardTimeout);
+  }, []);
 
   // Fetches feed, deals, explore, and saved-places from Supabase whenever a
   // user is authenticated. No-op in 'disabled' (no Supabase) mode.
