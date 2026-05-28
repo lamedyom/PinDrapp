@@ -11,6 +11,8 @@ export type DealCategory =
   | 'Bakery'
   | 'Coffee';
 
+export type DealMediaType = 'image' | 'video';
+
 export interface Deal {
   id: string;
   businessName: string;
@@ -25,6 +27,11 @@ export interface Deal {
   distanceMiles: number;
   isFeatured: boolean;
   stripeProductId: string;
+  /** Deals can be backed by an image OR a video. */
+  mediaUrl?: string;
+  mediaType?: DealMediaType;
+  /** Flash Sale, Event Deal, Limited Offer, Bundle Deal, Clearance. */
+  dealCategory?: string;
   lat?: number;
   lng?: number;
 }

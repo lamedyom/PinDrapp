@@ -12,7 +12,6 @@ export function StoryRail() {
       postId: string;
       name: string;
       emoji: string;
-      hasDeal: boolean;
       isLive: boolean;
     }[] = [];
     for (const p of posts) {
@@ -23,7 +22,6 @@ export function StoryRail() {
         postId: p.id,
         name: p.businessName,
         emoji: p.businessEmoji,
-        hasDeal: p.hasDeal,
         isLive: !!p.isLive,
       });
     }
@@ -50,7 +48,7 @@ export function StoryRail() {
             <div
               className={[
                 styles.ring,
-                b.hasDeal ? styles.ringDeal : '',
+                b.isLive ? styles.ringLive : '',
               ]
                 .filter(Boolean)
                 .join(' ')}

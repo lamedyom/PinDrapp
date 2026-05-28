@@ -1,12 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Heart, MapPin, Pin } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Heart, MapPin, MessageCircle, Pin } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactPlayer from 'react-player';
 import type { FeedPost } from '../../stores/feedStore';
 import { useFeedStore } from '../../stores/feedStore';
-import { useDealStore } from '../../stores/dealStore';
-import { useCountdown } from '../../hooks/useCountdown';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './VideoCard.module.css';
 
@@ -15,11 +12,8 @@ interface VideoCardProps {
 }
 
 export function VideoCard({ post }: VideoCardProps) {
-  const navigate = useNavigate();
   const likePost = useFeedStore((s) => s.likePost);
   const pinPost = useFeedStore((s) => s.pinPost);
-  const openCheckout = useDealStore((s) => s.openCheckout);
-  const deals = useDealStore((s) => s.deals);
 
   const [visible, setVisible] = useState(false);
   const [flyingPin, setFlyingPin] = useState(false);
@@ -39,11 +33,6 @@ export function VideoCard({ post }: VideoCardProps) {
     return () => obs.disconnect();
   }, []);
 
-  const deal = post.dealId ? deals.find((d) => d.id === post.dealId) ?? null : null;
-  const fallbackExpiry = useMemo(() => new Date(Date.now() + 3_600_000), []);
-  const countdown = useCountdown(deal?.expiresAt ?? fallbackExpiry);
-  const dealHoursLeft = deal && !countdown.isExpired ? Math.max(1, countdown.hours) : null;
-
   const handleLike = () => {
     tapHaptic();
     likePost(post.id);
@@ -57,13 +46,6 @@ export function VideoCard({ post }: VideoCardProps) {
       pinPost(post.id);
       setFlyingPin(false);
     }, 500);
-  };
-
-  const handleClaim = () => {
-    if (!deal) return;
-    tapHaptic();
-    navigate('/deals');
-    window.setTimeout(() => openCheckout(deal.id), 150);
   };
 
   return (
@@ -97,18 +79,8 @@ export function VideoCard({ post }: VideoCardProps) {
             <div className={styles.bizCat}>{post.businessCategory}</div>
           </div>
         </div>
-        <div
-          className={[styles.distance, post.hasDeal ? styles.distanceDeal : ''].join(' ')}
-        >
-          {post.hasDeal ? (
-            <>
-              ⚡ DEAL{dealHoursLeft != null ? ` · ${dealHoursLeft}h left` : ''}
-            </>
-          ) : (
-            <>
-              <MapPin size={11} /> {post.distanceMiles.toFixed(1)} mi
-            </>
-          )}
+        <div className={styles.distance}>
+          <MapPin size={11} /> {post.distanceMiles.toFixed(1)} mi
         </div>
       </div>
 
@@ -137,6 +109,11 @@ export function VideoCard({ post }: VideoCardProps) {
             <span className={styles.likeCount}>{post.likeCount}</span>
           </button>
 
+          <span className={styles.commentBtn} aria-label="Comments (coming soon)">
+            <MessageCircle size={17} strokeWidth={1.8} />
+            <span className={styles.likeCount}>{post.commentCount ?? 0}</span>
+          </span>
+
           {post.isPinned && (
             <span className={styles.pinned}>
               <Pin size={14} /> Pinned
@@ -152,11 +129,6 @@ export function VideoCard({ post }: VideoCardProps) {
                 aria-label="Save to map"
               >
                 <Pin size={12} /> Save to Map
-              </button>
-            )}
-            {post.hasDeal && (
-              <button type="button" className={styles.claimBtn} onClick={handleClaim}>
-                Claim Deal
               </button>
             )}
           </div>

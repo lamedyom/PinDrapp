@@ -308,6 +308,147 @@
   font-size: 11px;
 }
 
+/* ── Post-type chooser ──────────────────────────────────────────────────── */
+.chooserIntro {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 20px;
+  text-align: center;
+  margin: 24px 0 4px;
+}
+
+.chooserSub {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0 0 20px;
+}
+
+.chooserGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chooserCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.chooserCard:active {
+  transform: scale(0.98);
+}
+
+.chooserCardUpdate {
+  border-color: var(--orange-border);
+  background: rgba(255, 92, 26, 0.06);
+}
+
+.chooserCardDeal {
+  border-color: rgba(0, 217, 126, 0.35);
+  background: rgba(0, 217, 126, 0.06);
+}
+
+.chooserEmoji {
+  font-size: 40px;
+  flex-shrink: 0;
+}
+
+.chooserCardTitle {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 17px;
+  margin-bottom: 3px;
+}
+
+.chooserCardSub {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.backBtn {
+  justify-self: start;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+}
+
+/* category chips reuse .tags/.tagChip, but wrap instead of scroll */
+.categoryGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* deal photo picker */
+.photoPicker {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  border-radius: 16px;
+  border: 1px dashed var(--border-strong);
+  background: var(--bg-card);
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photoPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoEmpty {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.photoChange {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.mediaTypeToggle {
+  display: inline-flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+  align-self: flex-start;
+}
+
 .successCard {
   margin: 40px auto;
   max-width: 280px;

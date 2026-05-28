@@ -34,6 +34,14 @@
   z-index: 1;
 }
 
+.mediaEl {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .gradient {
   position: absolute;
   inset: 0;

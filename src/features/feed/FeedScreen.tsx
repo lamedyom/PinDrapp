@@ -9,7 +9,6 @@ import styles from './FeedScreen.module.css';
 
 const TABS: { id: FeedTab; label: string }[] = [
   { id: 'updates', label: 'Updates' },
-  { id: 'deals', label: 'Deals' },
   { id: 'nearby', label: 'Nearby' },
   { id: 'ai', label: 'AI Ask' },
 ];
@@ -22,7 +21,6 @@ export function FeedScreen() {
   const hydrated = useFeedStore((s) => s.hydrated);
 
   const visiblePosts = useMemo(() => {
-    if (activeTab === 'deals') return posts.filter((p) => p.hasDeal);
     if (activeTab === 'nearby') return [...posts].sort((a, b) => a.distanceMiles - b.distanceMiles);
     if (activeTab === 'ai') return [];
     return posts;

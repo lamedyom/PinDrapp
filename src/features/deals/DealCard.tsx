@@ -40,7 +40,20 @@ export function DealCard({ deal }: DealCardProps) {
       layout
     >
       <div className={styles.media} style={{ background: bg }}>
-        <span className={styles.emoji}>{deal.emoji}</span>
+        {deal.mediaUrl && deal.mediaType === 'video' ? (
+          <video
+            className={styles.mediaEl}
+            src={deal.mediaUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
+        ) : deal.mediaUrl ? (
+          <img className={styles.mediaEl} src={deal.mediaUrl} alt={deal.headline} />
+        ) : (
+          <span className={styles.emoji}>{deal.emoji}</span>
+        )}
         <div className={styles.gradient} />
         <div
           className={[styles.countdown, urgent ? styles.countdownUrgent : ''].join(' ')}

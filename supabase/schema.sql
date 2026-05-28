@@ -61,6 +61,20 @@ create table if not exists public.posts (
 create index if not exists posts_business_idx on public.posts(business_id);
 create index if not exists posts_created_idx on public.posts(created_at desc);
 
+-- post_type splits the two content streams: 'feed' (video updates, no pricing)
+-- vs 'deal' (flash deals). A post belongs to exactly one stream.
+alter table public.posts
+  add column if not exists post_type text
+  check (post_type in ('feed', 'deal')) default 'feed';
+
+create index if not exists posts_type_created_idx on public.posts(post_type, created_at desc);
+
+-- post_category labels a feed post (announcement, menuItem, event,
+-- behindTheScenes, newStock, update). Deal posts leave this null and use
+-- deals.deal_category instead.
+alter table public.posts
+  add column if not exists post_category text;
+
 -- ============================================================================
 -- deals (flash deals attached to a business / optionally a post)
 -- ============================================================================
@@ -79,6 +93,15 @@ create table if not exists public.deals (
 
 create index if not exists deals_business_idx on public.deals(business_id);
 create index if not exists deals_active_idx on public.deals(is_active, expires_at);
+
+-- Deals can be backed by an image OR a video, and carry a deal category.
+alter table public.deals
+  add column if not exists media_url text;
+alter table public.deals
+  add column if not exists media_type text
+  check (media_type in ('image', 'video'));
+alter table public.deals
+  add column if not exists deal_category text;
 
 -- ============================================================================
 -- saved_places (a consumer pinning a business to their map)
@@ -105,6 +128,49 @@ create table if not exists public.likes (
 );
 
 create index if not exists likes_post_idx on public.likes(post_id);
+
+-- ============================================================================
+-- catalog_items (a business's product/service menu — shown only in-profile)
+-- ============================================================================
+create table if not exists public.catalog_items (
+  id             uuid primary key default gen_random_uuid(),
+  business_id    uuid references public.businesses(id) on delete cascade,
+  name           text not null,
+  description    text default '',
+  category       text default 'General',
+  photo_url      text,
+  regular_price  numeric(10, 2),
+  sale_price     numeric(10, 2),
+  tags           text[] default '{}',
+  is_available   boolean default true,
+  sort_order     int default 0,
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists catalog_items_business_id_idx on public.catalog_items(business_id);
+
+alter table public.catalog_items enable row level security;
+
+drop policy if exists catalog_read on public.catalog_items;
+create policy catalog_read on public.catalog_items for select using (true);
+
+drop policy if exists catalog_owner_write on public.catalog_items;
+create policy catalog_owner_write on public.catalog_items
+  for all
+  using (
+    business_id in (
+      select b.id from public.businesses b
+      join public.users u on u.id = b.user_id
+      where u.auth_id = auth.uid()
+    )
+  )
+  with check (
+    business_id in (
+      select b.id from public.businesses b
+      join public.users u on u.id = b.user_id
+      where u.auth_id = auth.uid()
+    )
+  );
 
 -- ============================================================================
 -- like_count maintenance — keep posts.like_count in sync with the likes table

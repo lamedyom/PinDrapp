@@ -2,14 +2,24 @@ import { useMemo, useState } from 'react';
 import { Camera, LogOut, MapPin, Share2 } from 'lucide-react';
 import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
+import { useDealStore } from '../../stores/dealStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useCountdown } from '../../hooks/useCountdown';
 import { Button } from '../../components/ui/Button';
 import { isSupabaseConfigured } from '../../lib/supabase';
-import { MenuSection } from './MenuSection';
-import { DealTemplatesSection } from './DealTemplatesSection';
+import { CatalogSection } from './CatalogSection';
 import { EditProfileModal } from './EditProfileModal';
 import { SavedPlacesSection } from './SavedPlacesSection';
+import type { Deal } from '../../stores/dealStore';
 import styles from './ProfileScreen.module.css';
+
+type ProfileTab = 'feed' | 'deals' | 'catalog';
+
+const PROFILE_TABS: { id: ProfileTab; label: string }[] = [
+  { id: 'feed', label: 'Feed' },
+  { id: 'deals', label: 'Deals' },
+  { id: 'catalog', label: 'Catalog' },
+];
 
 // Defensive defaults — guarantees every field the render reads is defined,
 // even if the store hasn't hydrated or a Supabase field came back null.
@@ -38,7 +48,14 @@ export function ProfileScreen() {
   const updateProfile = useUserStore((s) => s.updateProfile);
   const authBusiness = useAuthStore((s) => s.business);
   const posts = useFeedStore((s) => s.posts);
+  const deals = useDealStore((s) => s.deals);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [tab, setTab] = useState<ProfileTab>('feed');
+
+  // This screen always shows the signed-in user's own business profile, so the
+  // owner controls (edit catalog, toggle availability) are always enabled. In
+  // mock/demo mode (Supabase off) we also treat the viewer as the owner.
+  const isOwner = !isSupabaseConfigured() || !!authBusiness;
 
   // When a Supabase-backed business exists, overlay its data on top of the
   // mock profile so the screen reflects the signed-in business. Every field
@@ -62,7 +79,20 @@ export function ProfileScreen() {
     };
   }, [authBusiness, profile]);
 
-  const myPosts = useMemo(() => (Array.isArray(posts) ? posts.slice(0, 9) : []), [posts]);
+  const myPosts = useMemo(() => (Array.isArray(posts) ? posts.slice(0, 12) : []), [posts]);
+
+  // Deals belonging to this business. When signed in, match by business name;
+  // in the demo we show all seeded deals so the tab is populated.
+  const myDeals = useMemo(() => {
+    const list = Array.isArray(deals) ? deals : [];
+    const mine = authBusiness
+      ? list.filter((d) => d.businessName === authBusiness.name)
+      : list;
+    const now = Date.now();
+    const active = mine.filter((d) => d.expiresAt.getTime() > now);
+    const past = mine.filter((d) => d.expiresAt.getTime() <= now);
+    return { active, past };
+  }, [deals, authBusiness]);
 
   const handleAvatarPick = async () => {
     if (typeof document === 'undefined') return;
@@ -153,27 +183,61 @@ export function ProfileScreen() {
 
       <SavedPlacesSection />
 
-      <MenuSection />
+      <div className={styles.profileTabs}>
+        {PROFILE_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`${styles.profileTab} ${tab === t.id ? styles.profileTabActive : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      <section className={styles.postsBlock}>
-        <h3 className={styles.postsTitle}>Recent Posts</h3>
-        <div className={styles.postsGrid}>
-          {myPosts.map((post) => (
-            <button
-              key={post.id}
-              type="button"
-              className={styles.postCell}
-              style={{ background: post.thumbnailGradient }}
-              onClick={() => setSelectedPostId(post.id)}
-            >
-              <span className={styles.postEmoji}>{post.businessEmoji}</span>
-              {post.hasDeal && <span className={styles.postDot} />}
-            </button>
+      <div className={styles.tabContent}>
+        {tab === 'feed' &&
+          (myPosts.length === 0 ? (
+            <div className={styles.emptyGridNote}>No video updates yet.</div>
+          ) : (
+            <div className={styles.postsGrid}>
+              {myPosts.map((post) => (
+                <button
+                  key={post.id}
+                  type="button"
+                  className={styles.postCell}
+                  style={{ background: post.thumbnailGradient }}
+                  onClick={() => setSelectedPostId(post.id)}
+                >
+                  <span className={styles.postEmoji}>{post.businessEmoji}</span>
+                  {post.isLive && <span className={styles.postDot} />}
+                </button>
+              ))}
+            </div>
           ))}
-        </div>
-      </section>
 
-      <DealTemplatesSection />
+        {tab === 'deals' && (
+          <div className={styles.dealsList}>
+            {myDeals.active.length === 0 && myDeals.past.length === 0 && (
+              <div className={styles.emptyGridNote}>No deals yet.</div>
+            )}
+            {myDeals.active.map((d) => (
+              <ProfileDealRow key={d.id} deal={d} />
+            ))}
+            {myDeals.past.length > 0 && (
+              <>
+                <div className={styles.dealGroupLabel}>Past deals</div>
+                {myDeals.past.map((d) => (
+                  <ProfileDealRow key={d.id} deal={d} ended />
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === 'catalog' && <CatalogSection isOwner={isOwner} />}
+      </div>
 
       <EditProfileModal />
 
@@ -195,6 +259,36 @@ export function ProfileScreen() {
       )}
     </div>
   );
+}
+
+function ProfileDealRow({ deal, ended }: { deal: Deal; ended?: boolean }) {
+  const c = useCountdown(deal.expiresAt);
+  const priceLabel =
+    deal.discountPercent != null
+      ? `${deal.discountPercent}% off`
+      : deal.dealPrice != null && deal.originalPrice != null
+        ? `$${deal.dealPrice} (was $${deal.originalPrice})`
+        : deal.dealPrice != null
+          ? `$${deal.dealPrice}`
+          : 'Special';
+  return (
+    <div className={`${styles.dealRow} ${ended ? styles.dealEnded : ''}`}>
+      <span className={styles.dealEmoji}>{deal.emoji}</span>
+      <div className={styles.dealInfo}>
+        <div className={styles.dealHeadline}>{deal.headline}</div>
+        <div className={styles.dealMeta}>{priceLabel}</div>
+      </div>
+      <span className={`${styles.dealBadge} ${ended ? styles.dealBadgeEnded : ''}`}>
+        {ended || c.isExpired
+          ? 'Ended'
+          : `${pad(c.hours)}:${pad(c.minutes)}:${pad(c.seconds)}`}
+      </span>
+    </div>
+  );
+}
+
+function pad(n: number): string {
+  return n.toString().padStart(2, '0');
 }
 
 function Stat({ label, value }: { label: string; value: number }) {

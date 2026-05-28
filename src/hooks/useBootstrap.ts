@@ -3,9 +3,11 @@ import { useAuthStore } from '../stores/authStore';
 import { useMapStore } from '../stores/mapStore';
 import { useFeedStore } from '../stores/feedStore';
 import { useDealStore } from '../stores/dealStore';
+import { useCatalogStore } from '../stores/catalogStore';
 import { supabase } from '../lib/supabase';
 import { showToast } from '../stores/toastStore';
 import {
+  fetchCatalog,
   fetchDeals,
   fetchExploreBusinesses,
   fetchFeed,
@@ -21,6 +23,7 @@ import {
 export function useBootstrap(): void {
   const stage = useAuthStore((s) => s.stage);
   const profile = useAuthStore((s) => s.profile);
+  const businessId = useAuthStore((s) => s.business?.id);
   const userLat = useMapStore((s) => s.userLocation?.lat);
   const userLng = useMapStore((s) => s.userLocation?.lng);
 
@@ -69,12 +72,23 @@ export function useBootstrap(): void {
       }
     };
 
+    const loadCatalog = async () => {
+      if (!businessId) return;
+      try {
+        const items = await fetchCatalog(businessId);
+        if (!cancelled && items.length) useCatalogStore.getState().hydrate(items);
+      } catch {
+        // catalog keeps its seed; non-fatal
+      }
+    };
+
     // Initial load with loading flags so screens can show skeletons.
     useFeedStore.getState().setLoading(true);
     useDealStore.getState().setLoading(true);
     void loadFeed();
     void loadDeals();
     void loadMap();
+    void loadCatalog();
 
     // ── Realtime: refetch on any change (debounced). Payloads don't include
     // the joined business row, so a full refetch is simpler + correct than
@@ -106,7 +120,7 @@ export function useBootstrap(): void {
       void sb.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, profile?.id, userLat, userLng]);
+  }, [stage, profile?.id, businessId, userLat, userLng]);
 }
 
 function msg(e: unknown): string {

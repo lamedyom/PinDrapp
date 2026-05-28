@@ -5,7 +5,15 @@ import { showToast } from './toastStore';
 import { useAuthStore } from './authStore';
 import { savePlaceFor, togglePostLike } from '../lib/supabaseApi';
 
-export type FeedTab = 'updates' | 'deals' | 'nearby' | 'ai';
+export type FeedTab = 'updates' | 'nearby' | 'ai';
+
+export type FeedCategory =
+  | 'announcement'
+  | 'menuItem'
+  | 'event'
+  | 'behindTheScenes'
+  | 'newStock'
+  | 'update';
 
 export interface FeedPost {
   id: string;
@@ -15,11 +23,12 @@ export interface FeedPost {
   businessEmoji: string;
   caption: string;
   likeCount: number;
+  commentCount?: number;
   distanceMiles: number;
   isLiked: boolean;
   isPinned: boolean;
-  hasDeal: boolean;
-  dealId?: string;
+  /** Feed posts are pure video updates — never carry pricing/deals. */
+  postCategory?: FeedCategory;
   createdAt: Date;
   videoUrl?: string;
   thumbnailGradient: string;
@@ -53,13 +62,13 @@ const mockPosts: FeedPost[] = [
     businessName: "GG's Waterfront",
     businessCategory: 'Steakhouse',
     businessEmoji: '🥩',
-    caption: 'Sunset Surf & Turf on the Broadwalk tonight — $79 for two. Walk-ins welcome.',
+    caption: 'Surf & turf hitting the pass — sunset service is live on the Broadwalk tonight.',
     likeCount: 148,
+    commentCount: 12,
     distanceMiles: 1.7,
     isLiked: false,
     isPinned: true,
-    hasDeal: true,
-    dealId: 'd1',
+    postCategory: 'behindTheScenes',
     createdAt: new Date(Date.now() - 3600000),
     thumbnailGradient: 'linear-gradient(160deg,#1a0d2e,#0d1f3c)',
     lat: 26.0177,
@@ -71,13 +80,13 @@ const mockPosts: FeedPost[] = [
     businessName: 'Green Garden Bowls',
     businessCategory: 'Vegan',
     businessEmoji: '🥗',
-    caption: 'Flash deal: any grain bowl 30% off today only until 8pm. Come in!',
+    caption: "Today's rainbow grain bowl, built fresh to order. Come say hi 🌱",
     likeCount: 87,
+    commentCount: 4,
     distanceMiles: 0.5,
     isLiked: false,
     isPinned: false,
-    hasDeal: true,
-    dealId: 'd2',
+    postCategory: 'menuItem',
     createdAt: new Date(Date.now() - 7200000),
     thumbnailGradient: 'linear-gradient(160deg,#0f1f0f,#1a2a1a)',
     isLive: true,
@@ -90,13 +99,13 @@ const mockPosts: FeedPost[] = [
     businessName: 'Sage Bagel & Deli',
     businessCategory: 'Bakery',
     businessEmoji: '🥐',
-    caption: 'Fresh from the kettle — sesame bagels. Buy a dozen this Friday, get 6 free.',
+    caption: 'Fresh from the kettle — sesame bagels still warm. Friday batch is the best one.',
     likeCount: 203,
+    commentCount: 18,
     distanceMiles: 0.6,
     isLiked: true,
     isPinned: false,
-    hasDeal: true,
-    dealId: 'd3',
+    postCategory: 'newStock',
     createdAt: new Date(Date.now() - 10800000),
     thumbnailGradient: 'linear-gradient(160deg,#2a1a00,#1a1000)',
     lat: 26.015,
@@ -108,13 +117,13 @@ const mockPosts: FeedPost[] = [
     businessName: 'Hollywood Boulevard Boutique',
     businessCategory: 'Fashion',
     businessEmoji: '👗',
-    caption: 'New summer collection just dropped. 20% off everything today — in store only.',
+    caption: 'New summer collection just dropped. Swing by and see it in person.',
     likeCount: 56,
+    commentCount: 2,
     distanceMiles: 0.2,
     isLiked: false,
     isPinned: false,
-    hasDeal: true,
-    dealId: 'd4',
+    postCategory: 'newStock',
     createdAt: new Date(Date.now() - 14400000),
     thumbnailGradient: 'linear-gradient(160deg,#0d1f3c,#1a0d2e)',
     lat: 26.0125,
@@ -128,10 +137,11 @@ const mockPosts: FeedPost[] = [
     businessEmoji: '🍕',
     caption: 'Just pulled this margherita out of the stone oven. Come hungry tonight.',
     likeCount: 312,
+    commentCount: 27,
     distanceMiles: 0.3,
     isLiked: false,
     isPinned: false,
-    hasDeal: false,
+    postCategory: 'behindTheScenes',
     createdAt: new Date(Date.now() - 18000000),
     thumbnailGradient: 'linear-gradient(160deg,#2a0a0a,#1a1020)',
     lat: 26.0107,
@@ -143,12 +153,13 @@ const mockPosts: FeedPost[] = [
     businessName: 'Tap 42 Hollywood',
     businessCategory: 'Coffee',
     businessEmoji: '☕',
-    caption: 'Monday morning reset. Ethiopian pour-over, slow batch. In before 9 for 10% off.',
+    caption: 'Monday morning reset. Ethiopian pour-over, slow batch. Doors open at 7.',
     likeCount: 74,
+    commentCount: 6,
     distanceMiles: 0.4,
     isLiked: false,
     isPinned: false,
-    hasDeal: false,
+    postCategory: 'announcement',
     createdAt: new Date(Date.now() - 21600000),
     thumbnailGradient: 'linear-gradient(160deg,#1a1000,#2a1a00)',
     lat: 26.0095,
@@ -200,7 +211,7 @@ export const useFeedStore = create<FeedState>()(
         emoji: post.businessEmoji,
         type: 'social',
         category: post.businessCategory.toLowerCase(),
-        hasDeal: post.hasDeal,
+        hasDeal: false,
         lat: post.lat ?? 40.7505,
         lng: post.lng ?? -73.9845,
       });

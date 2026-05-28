@@ -8,6 +8,7 @@
 import { supabase } from './supabase';
 import type { FeedPost } from '../stores/feedStore';
 import type { Deal } from '../stores/dealStore';
+import type { CatalogItem } from '../stores/catalogStore';
 import type { SavedPlace, ExploreBusiness } from '../stores/mapStore';
 
 interface BusinessRow {
@@ -30,6 +31,8 @@ interface PostRow {
   video_url: string | null;
   thumbnail_url: string | null;
   like_count: number;
+  post_type: string | null;
+  post_category: string | null;
   created_at: string;
   business: BusinessRow | BusinessRow[] | null;
 }
@@ -44,6 +47,9 @@ interface DealRow {
   discount_percent: number | null;
   expires_at: string | null;
   is_active: boolean;
+  media_url: string | null;
+  media_type: string | null;
+  deal_category: string | null;
   created_at: string;
   business: BusinessRow | BusinessRow[] | null;
 }
@@ -120,9 +126,11 @@ export async function fetchFeed(
   forUserId?: string,
 ): Promise<FeedPost[]> {
   if (!supabase) return [];
+  // Feed stream is video updates only — posts with post_type='feed'.
   const { data, error } = await supabase
     .from('posts')
     .select('*, business:businesses(*)')
+    .eq('post_type', 'feed')
     .order('created_at', { ascending: false })
     .limit(50);
   if (error || !data) return [];
@@ -133,12 +141,8 @@ export async function fetchFeed(
     ? await fetchUserSavedBusinessIds(forUserId)
     : new Set<string>();
 
-  // Also pull active deals to attach dealId to each post by business
-  const activeDealsByBusiness = await fetchActiveDealsByBusinessId();
-
   return (data as PostRow[]).map((row) => {
     const biz = relOne(row.business);
-    const dealForBiz = biz ? activeDealsByBusiness.get(biz.id) ?? null : null;
     return {
       id: row.id,
       businessId: row.business_id,
@@ -147,14 +151,14 @@ export async function fetchFeed(
       businessEmoji: emojiForCategory(biz?.category ?? ''),
       caption: row.caption,
       likeCount: row.like_count,
+      commentCount: 0,
       distanceMiles: distanceMiFrom(near ?? null, {
         lat: biz?.lat ?? null,
         lng: biz?.lng ?? null,
       }),
       isLiked: likedPostIds.has(row.id),
       isPinned: biz ? pinnedBusinessIds.has(biz.id) : false,
-      hasDeal: !!dealForBiz,
-      dealId: dealForBiz?.id,
+      postCategory: (row.post_category as FeedPost['postCategory']) ?? 'update',
       createdAt: new Date(row.created_at),
       videoUrl: row.video_url ?? undefined,
       thumbnailGradient: gradientFor(biz?.category ?? ''),
@@ -213,6 +217,9 @@ export async function fetchDeals(
       }),
       isFeatured: i === 0,
       stripeProductId: row.id,
+      mediaUrl: row.media_url ?? undefined,
+      mediaType: (row.media_type as 'image' | 'video' | null) ?? undefined,
+      dealCategory: row.deal_category ?? undefined,
       lat: biz?.lat ?? undefined,
       lng: biz?.lng ?? undefined,
     } satisfies Deal;
@@ -294,6 +301,94 @@ export async function fetchSavedPlaces(userId: string): Promise<SavedPlace[]> {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// CATALOG (per-business product/service menu — profile only)
+// ───────────────────────────────────────────────────────────────────────────
+
+interface CatalogRow {
+  id: string;
+  business_id: string | null;
+  name: string;
+  description: string | null;
+  category: string | null;
+  photo_url: string | null;
+  regular_price: number | null;
+  sale_price: number | null;
+  tags: string[] | null;
+  is_available: boolean | null;
+  sort_order: number | null;
+}
+
+function mapCatalogRow(row: CatalogRow): CatalogItem {
+  return {
+    id: row.id,
+    businessId: row.business_id ?? undefined,
+    name: row.name,
+    description: row.description ?? '',
+    category: row.category ?? 'General',
+    photoUrl: row.photo_url ?? null,
+    regularPrice: row.regular_price,
+    salePrice: row.sale_price,
+    tags: row.tags ?? [],
+    isAvailable: row.is_available ?? true,
+    sortOrder: row.sort_order ?? 0,
+  };
+}
+
+export async function fetchCatalog(businessId: string): Promise<CatalogItem[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('catalog_items')
+    .select('*')
+    .eq('business_id', businessId)
+    .order('sort_order', { ascending: true });
+  if (error || !data) return [];
+  return (data as CatalogRow[]).map(mapCatalogRow);
+}
+
+export interface SaveCatalogItemInput {
+  id?: string;
+  businessId: string;
+  name: string;
+  description?: string;
+  category?: string;
+  photoUrl?: string | null;
+  regularPrice?: number | null;
+  salePrice?: number | null;
+  tags?: string[];
+  isAvailable?: boolean;
+  sortOrder?: number;
+}
+
+export async function saveCatalogItem(
+  input: SaveCatalogItemInput,
+): Promise<CatalogItem | null> {
+  if (!supabase) return null;
+  const payload = {
+    business_id: input.businessId,
+    name: input.name,
+    description: input.description ?? '',
+    category: input.category ?? 'General',
+    photo_url: input.photoUrl ?? null,
+    regular_price: input.regularPrice ?? null,
+    sale_price: input.salePrice ?? null,
+    tags: input.tags ?? [],
+    is_available: input.isAvailable ?? true,
+    sort_order: input.sortOrder ?? 0,
+  };
+  const query = input.id
+    ? supabase.from('catalog_items').update(payload).eq('id', input.id)
+    : supabase.from('catalog_items').insert(payload);
+  const { data, error } = await query.select('*').single();
+  if (error) throw error;
+  return data ? mapCatalogRow(data as CatalogRow) : null;
+}
+
+export async function deleteCatalogItem(id: string): Promise<void> {
+  if (!supabase) return;
+  await supabase.from('catalog_items').delete().eq('id', id);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // MUTATIONS
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -341,6 +436,9 @@ export interface CreatePostInput {
   caption: string;
   videoUrl?: string;
   thumbnailUrl?: string;
+  /** 'feed' (video update) or 'deal' (backs a flash deal). Defaults to 'feed'. */
+  postType?: 'feed' | 'deal';
+  postCategory?: string;
 }
 
 export async function createPost(input: CreatePostInput): Promise<string | null> {
@@ -352,6 +450,8 @@ export async function createPost(input: CreatePostInput): Promise<string | null>
       caption: input.caption,
       video_url: input.videoUrl ?? null,
       thumbnail_url: input.thumbnailUrl ?? null,
+      post_type: input.postType ?? 'feed',
+      post_category: input.postCategory ?? null,
     })
     .select('id')
     .single();
@@ -367,6 +467,9 @@ export interface CreateDealInput {
   dealPrice?: number | null;
   discountPercent?: number | null;
   expiresAt: Date;
+  mediaUrl?: string | null;
+  mediaType?: 'image' | 'video' | null;
+  dealCategory?: string | null;
 }
 
 export async function createDeal(input: CreateDealInput): Promise<string | null> {
@@ -382,6 +485,9 @@ export async function createDeal(input: CreateDealInput): Promise<string | null>
       discount_percent: input.discountPercent ?? null,
       expires_at: input.expiresAt.toISOString(),
       is_active: true,
+      media_url: input.mediaUrl ?? null,
+      media_type: input.mediaType ?? null,
+      deal_category: input.dealCategory ?? null,
     })
     .select('id')
     .single();
@@ -417,4 +523,9 @@ export async function uploadAvatar(file: File | Blob): Promise<string | null> {
 
 export async function uploadVideo(file: File | Blob): Promise<string | null> {
   return uploadTo('videos', file, file instanceof File ? file.name : undefined);
+}
+
+// Catalog photos and deal images share the public 'avatars' bucket.
+export async function uploadImage(file: File | Blob): Promise<string | null> {
+  return uploadTo('avatars', file, file instanceof File ? file.name : undefined);
 }
