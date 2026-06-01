@@ -15,20 +15,26 @@ import {
 } from '../lib/supabaseApi';
 
 /**
- * Once authenticated, hydrate the feed / deals / explore / saved-places
- * stores from Supabase and keep them live via realtime subscriptions.
+ * Hydrates the public stores (feed / deals / explore businesses) from
+ * Supabase as soon as the client is configured, and keeps them live via a
+ * realtime channel. Per-user reads (likes, saved places, catalog) only run
+ * when a profile is signed in.
  *
- * No-op in 'disabled' mode (no Supabase) — the stores keep their mock seed.
+ * In offline demo mode (no Supabase) the stores stay empty and screens
+ * show their normal empty states.
  */
 export function useBootstrap(): void {
   const stage = useAuthStore((s) => s.stage);
-  const profile = useAuthStore((s) => s.profile);
+  const userId = useAuthStore((s) => s.profile?.id);
   const businessId = useAuthStore((s) => s.business?.id);
   const userLat = useMapStore((s) => s.userLocation?.lat);
   const userLng = useMapStore((s) => s.userLocation?.lng);
 
   useEffect(() => {
-    if (stage !== 'authenticated' || !profile || !supabase) return;
+    // We want feed/deals/explore to show up for guests too — Supabase RLS
+    // already gates writes; public SELECTs are open. We only bail out when
+    // Supabase isn't configured at all, or while auth init is still pending.
+    if (!supabase || stage === 'loading') return;
     let cancelled = false;
     const sb = supabase;
     const near =
@@ -36,7 +42,7 @@ export function useBootstrap(): void {
 
     const loadFeed = async () => {
       try {
-        const feed = await fetchFeed(near, profile.id);
+        const feed = await fetchFeed(near, userId);
         if (!cancelled) useFeedStore.getState().hydrate(feed);
       } catch (e) {
         if (!cancelled) {
@@ -60,10 +66,10 @@ export function useBootstrap(): void {
 
     const loadMap = async () => {
       try {
-        const [explore, saved] = await Promise.all([
-          fetchExploreBusinesses(near),
-          fetchSavedPlaces(profile.id),
-        ]);
+        const explorePromise = fetchExploreBusinesses(near);
+        // Saved places are per-user; guests see no pins they didn't save.
+        const savedPromise = userId ? fetchSavedPlaces(userId) : Promise.resolve([]);
+        const [explore, saved] = await Promise.all([explorePromise, savedPromise]);
         if (cancelled) return;
         useMapStore.getState().hydrateExplore(explore);
         useMapStore.getState().hydrateSaved(saved);
@@ -130,7 +136,7 @@ export function useBootstrap(): void {
       void sb.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, profile?.id, businessId, userLat, userLng]);
+  }, [stage, userId, businessId, userLat, userLng]);
 }
 
 function msg(e: unknown): string {

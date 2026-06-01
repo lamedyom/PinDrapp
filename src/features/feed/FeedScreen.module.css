@@ -34,3 +34,45 @@
   flex-direction: column;
   gap: 1px;
 }
+
+.emptyActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.pullIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--orange);
+  overflow: hidden;
+  transition: opacity 120ms ease;
+}
+
+.pullIndicatorActive {
+  background: rgba(255, 92, 26, 0.04);
+}
+
+.pullIcon {
+  transition: transform 120ms ease;
+}
+
+.pullIconSpin {
+  animation: pullSpin 0.9s linear infinite;
+}
+
+@keyframes pullSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
