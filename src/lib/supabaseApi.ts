@@ -856,6 +856,16 @@ export async function createPost(input: CreatePostInput): Promise<string | null>
     post_type: input.postType ?? 'feed',
     has_video_url: !!input.videoUrl,
   });
+  // posts schema (canonical column list — keep in sync with supabase/schema.sql):
+  //   id            uuid           default
+  //   business_id   uuid   ← set
+  //   caption       text   ← set
+  //   video_url     text   ← set
+  //   thumbnail_url text   ← set
+  //   like_count    int            default 0
+  //   post_type     text   ← set   ('feed' | 'deal')  (ALTER added)
+  //   post_category text   ← set   (ALTER added)
+  //   created_at    timestamptz    default now()
   const { data, error } = await supabase
     .from('posts')
     .insert({
