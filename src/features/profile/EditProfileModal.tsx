@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Camera } from 'lucide-react';
+import { Camera, MapPin } from 'lucide-react';
 import { useUserStore, type BusinessProfile } from '../../stores/userStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useMapStore } from '../../stores/mapStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { showToast } from '../../stores/toastStore';
 import { uploadAvatar } from '../../lib/supabaseApi';
 import { supabase } from '../../lib/supabase';
+import { geocodePlaces, type GeocodingResult } from '../../lib/geocoding';
 import styles from './EditProfileModal.module.css';
 
 const CATEGORIES = [
@@ -34,12 +36,68 @@ export function EditProfileModal() {
 
   const [form, setForm] = useState<BusinessProfile | null>(profile ?? null);
 
-  useEffect(() => {
-    if (open) setForm(profile ?? null);
-  }, [open, profile]);
-
   const authBusiness = useAuthStore((s) => s.business);
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
+  const userLoc = useMapStore((s) => s.userLocation);
+
+  // Address geocoding. We keep coords in their own state because the legacy
+  // BusinessProfile form shape has no lat/lng fields — coords come from the
+  // signed-in business OR from a freshly selected geocoder suggestion, and
+  // are written to the `businesses` table on save.
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [addressFocused, setAddressFocused] = useState(false);
+  const [suggestions, setSuggestions] = useState<GeocodingResult[]>([]);
+  // Block the suggestions effect from firing immediately after the user picks
+  // one — without it the picked address would re-query and re-open the menu.
+  const skipNextSuggestRef = useRef(false);
+  const geocodeAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setForm(profile ?? null);
+      setCoords(
+        authBusiness?.lat != null && authBusiness?.lng != null
+          ? { lat: authBusiness.lat, lng: authBusiness.lng }
+          : null,
+      );
+      setSuggestions([]);
+      setAddressFocused(false);
+    }
+  }, [open, profile, authBusiness]);
+
+  // Debounced address autocomplete via Mapbox geocoding.
+  useEffect(() => {
+    if (!addressFocused) return;
+    if (skipNextSuggestRef.current) {
+      skipNextSuggestRef.current = false;
+      return;
+    }
+    const q = form?.address?.trim() ?? '';
+    if (q.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      geocodeAbortRef.current?.abort();
+      const ctrl = new AbortController();
+      geocodeAbortRef.current = ctrl;
+      geocodePlaces(q, userLoc ?? undefined, ctrl.signal)
+        .then(setSuggestions)
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+          setSuggestions([]);
+        });
+    }, 240);
+    return () => window.clearTimeout(handle);
+  }, [form?.address, addressFocused, userLoc]);
+
+  const pickAddress = (s: GeocodingResult) => {
+    skipNextSuggestRef.current = true;
+    setForm((c) => (c ? { ...c, address: s.placeName } : c));
+    setCoords({ lat: s.lat, lng: s.lng });
+    setSuggestions([]);
+    setAddressFocused(false);
+  };
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'image/*': [] },
@@ -81,6 +139,9 @@ export function EditProfileModal() {
             phone: form.phone,
             address: form.address,
             avatar_url: form.imageUrl,
+            // Coords from the geocoder selection — written alongside the
+            // address text so the business pin lands at the right location.
+            ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
           })
           .eq('id', authBusiness.id);
         if (error) throw error;
@@ -197,11 +258,55 @@ export function EditProfileModal() {
             />
           </Field>
           <Field label="Address">
-            <input
-              className={styles.input}
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
+            <div className={styles.addressWrap}>
+              <input
+                className={styles.input}
+                value={form.address}
+                placeholder="Start typing to search…"
+                autoComplete="off"
+                onFocus={() => setAddressFocused(true)}
+                onBlur={() => {
+                  // Delay so a click on a suggestion fires before blur hides
+                  // the dropdown.
+                  window.setTimeout(() => setAddressFocused(false), 150);
+                }}
+                onChange={(e) => {
+                  // Manual edits invalidate the previously-selected coords —
+                  // we don't want to keep stale lat/lng for a different place.
+                  setForm({ ...form, address: e.target.value });
+                  setCoords(null);
+                }}
+              />
+              {addressFocused && suggestions.length > 0 && (
+                <ul className={styles.suggestList} role="listbox">
+                  {suggestions.map((s) => (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        className={styles.suggestItem}
+                        // onMouseDown fires before blur, so the pick lands
+                        // before the dropdown closes.
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          pickAddress(s);
+                        }}
+                      >
+                        <MapPin size={13} className={styles.suggestIcon} />
+                        <span className={styles.suggestText}>
+                          <span className={styles.suggestName}>{s.name}</span>
+                          <span className={styles.suggestPlace}>{s.placeName}</span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {coords && (
+                <div className={styles.coordsHint}>
+                  📍 Saved coordinates · {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+                </div>
+              )}
+            </div>
           </Field>
         </div>
 
