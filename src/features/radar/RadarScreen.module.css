@@ -1,0 +1,328 @@
+.screen {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: var(--bg-page);
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 36px 24px 78px;
+  background: linear-gradient(180deg, #07070d, #111118 70%, var(--bg-page) 100%);
+  overflow: hidden;
+}
+
+.ringStage {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 92, 26, 0.4);
+  background: rgba(255, 92, 26, 0.05);
+  transform: translate(-50%, -50%) scale(0);
+  animation: radarPulse 3s ease-out infinite;
+}
+
+.ring1 {
+  animation-delay: 0s;
+  background: rgba(255, 92, 26, 0.15);
+}
+.ring2 {
+  animation-delay: 1s;
+  background: rgba(255, 92, 26, 0.1);
+}
+.ring3 {
+  animation-delay: 2s;
+  background: rgba(255, 92, 26, 0.05);
+}
+
+@keyframes radarPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
+}
+
+.pin {
+  position: relative;
+  z-index: 2;
+}
+
+.title {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 22px;
+  color: #fff;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 280px;
+}
+
+/* ── Search bar (overlaps hero bottom) ──────────────────────────────────── */
+.searchWrap {
+  margin: -28px 16px 0;
+  position: relative;
+  z-index: 3;
+}
+
+.searchPill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  border-radius: 26px;
+  padding: 0 8px 0 16px;
+  background: rgba(17, 17, 24, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.searchIcon {
+  color: var(--orange);
+  flex-shrink: 0;
+  animation: radarTick 1.6s ease-in-out infinite;
+}
+
+@keyframes radarTick {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.sendBtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--orange);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Suggestion chips ───────────────────────────────────────────────────── */
+.suggestRow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  padding: 14px 16px 6px;
+}
+
+.suggestChip {
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.suggestChip:hover {
+  color: var(--text-primary);
+  border-color: var(--orange-border);
+}
+
+/* ── Results ────────────────────────────────────────────────────────────── */
+.results {
+  padding: 8px 16px 32px;
+}
+
+.aiMessage {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 4px 0 14px;
+}
+
+.resultList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resultCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.resultEmoji {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--bg-shell);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.resultInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.resultName {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.resultMeta {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.dealPill {
+  display: inline-block;
+  margin-top: 4px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  background: rgba(0, 217, 126, 0.15);
+  color: var(--green);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.resultActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dirBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--bg-shell);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dirBtn:hover {
+  color: var(--blue);
+  border-color: rgba(26, 58, 255, 0.3);
+}
+
+/* ── Loading / empty ────────────────────────────────────────────────────── */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 92, 26, 0.2);
+  border-top-color: var(--orange);
+  animation: radarSpin 1s linear infinite;
+}
+
+@keyframes radarSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loadingLabel {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.skeletonStack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.initial {
+  padding: 20px 8px;
+}
+
+.initialHint {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
+}

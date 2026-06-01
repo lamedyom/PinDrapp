@@ -58,3 +58,28 @@
   box-shadow: 0 4px 24px rgba(255, 92, 26, 0.65);
   transform: scale(0.97);
 }
+
+/* Consumer center button — same elevated rounded-square shape as the
+   business + button, but blue and icon-only (no label below). */
+.mapBtn {
+  justify-self: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #1A3AFF;
+  box-shadow: 0 4px 20px rgba(26, 58, 255, 0.45);
+  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 120ms ease;
+}
+
+.mapBtn:active {
+  transform: scale(0.95);
+}
+
+.mapBtnActive {
+  box-shadow: 0 4px 24px rgba(26, 58, 255, 0.65);
+  transform: scale(0.97);
+}

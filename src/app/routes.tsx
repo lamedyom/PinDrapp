@@ -7,11 +7,14 @@ import { DealsScreen } from '../features/deals/DealsScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { BusinessProfileScreen } from '../features/profile/BusinessProfileScreen';
 import { PostScreen } from '../features/post/PostScreen';
+import { RadarScreen } from '../features/radar/RadarScreen';
 import { SplashScreen } from '../features/auth/SplashScreen';
 import { PhoneAuth } from '../features/auth/PhoneAuth';
 import { EmailAuth } from '../features/auth/EmailAuth';
 import { AuthCallback } from '../features/auth/AuthCallback';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
+import { useAuthStore } from '../stores/authStore';
+import { showToast } from '../stores/toastStore';
 
 const pageVariants = {
   initial: { opacity: 0, y: 16 },
@@ -99,16 +102,41 @@ export function AppRoutes() {
               </PageWrap>
             }
           />
+          <Route
+            path="/radar"
+            element={
+              <PageWrap label="Radar">
+                <RadarScreen />
+              </PageWrap>
+            }
+          />
         </Route>
         <Route
           path="/post"
           element={
             <ErrorBoundary label="Post">
-              <PostScreen />
+              <BusinessOnlyRoute>
+                <PostScreen />
+              </BusinessOnlyRoute>
             </ErrorBoundary>
           }
         />
       </Routes>
     </AnimatePresence>
   );
+}
+
+/**
+ * Gate /post — only business owners can reach it. Guests bounce to splash,
+ * consumers get a toast + a quick send to /feed.
+ */
+function BusinessOnlyRoute({ children }: { children: React.ReactNode }) {
+  const profile = useAuthStore((s) => s.profile);
+  if (!profile) return <Navigate to="/auth/splash" replace />;
+  if (profile.userType !== 'business') {
+    // Surface a toast on next paint and redirect away.
+    queueMicrotask(() => showToast('Only business accounts can post'));
+    return <Navigate to="/feed" replace />;
+  }
+  return <>{children}</>;
 }

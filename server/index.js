@@ -9,6 +9,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env'), override: true
 
 const { registerSubscriptionRoutes } = require('./subscription');
 const aiDealRoutes = require('./aiDeal');
+const radarRoutes = require('./radar');
 const { startScheduler } = require('./scheduler');
 
 // ── Stripe
@@ -84,6 +85,9 @@ app.post('/api/create-payment-intent', async (req, res) => {
 
 // AI Deal Autopilot
 app.use('/api/ai', aiDealRoutes({ supabase, anthropic, replicate }));
+
+// Radar — AI-powered local search for consumers
+app.use('/api/radar', radarRoutes({ supabase, anthropic }));
 
 // Background worker that publishes scheduled (AI-scheduled) deals.
 startScheduler(supabase);
