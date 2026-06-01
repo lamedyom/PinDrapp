@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Phone } from 'lucide-react';
+import { ArrowRight, Mail, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BrandMark } from '../../components/layout/BrandMark';
 import { supabase, OAUTH_REDIRECT_URL } from '../../lib/supabase';
+import { useAuthStore } from '../../stores/authStore';
 import { showToast } from '../../stores/toastStore';
 import { tapHaptic } from '../../lib/haptics';
 import { GoogleIcon, AppleIcon } from './brandIcons';
@@ -115,6 +116,22 @@ export function SplashScreen() {
           Already have an account?{' '}
           <button type="button" className={styles.loginLink} onClick={() => navigate('/auth/email?mode=login')}>
             Log in
+          </button>
+        </div>
+
+        <div className={styles.guestRow}>
+          <div className={styles.guestDivider} aria-hidden />
+          <div className={styles.guestLabel}>Just browsing?</div>
+          <button
+            type="button"
+            className={styles.guestBtn}
+            onClick={() => {
+              tapHaptic();
+              useAuthStore.getState().continueAsGuest();
+              navigate('/feed');
+            }}
+          >
+            Continue as Guest <ArrowRight size={14} />
           </button>
         </div>
 

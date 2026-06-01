@@ -29,11 +29,23 @@ export function useVideoUpload(): UseVideoUpload {
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string | undefined;
     const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string | undefined;
 
+    // eslint-disable-next-line no-console
+    console.log('[pindrapp] uploading video to Cloudinary…', {
+      cloudName,
+      preset,
+      size: 'size' in file ? file.size : undefined,
+      type: file.type,
+    });
+
     setUploading(true);
     setProgress(0);
     setError(null);
 
     if (!cloudName || cloudName.startsWith('your_') || !preset) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[pindrapp] Cloudinary env not set — using local blob URL fallback',
+      );
       // Local fallback: simulate upload using blob URL
       return new Promise((resolve) => {
         const blobUrl = URL.createObjectURL(file);
@@ -73,18 +85,24 @@ export function useVideoUpload(): UseVideoUpload {
             error?: { message?: string };
           };
           if (xhr.status === 200 && data.secure_url) {
+            // eslint-disable-next-line no-console
+            console.log('[pindrapp] Cloudinary upload OK:', data.secure_url);
             resolve({
               url: data.secure_url,
               publicId: data.public_id ?? '',
               duration: data.duration ?? 0,
             });
           } else {
-            const msg = data.error?.message ?? 'Upload failed';
+            const msg = data.error?.message ?? `Upload failed (HTTP ${xhr.status})`;
+            // eslint-disable-next-line no-console
+            console.error('[pindrapp] Cloudinary error:', { status: xhr.status, body: data });
             setError(msg);
             reject(new Error(msg));
           }
         } catch (e) {
           const msg = e instanceof Error ? e.message : 'Upload parse error';
+          // eslint-disable-next-line no-console
+          console.error('[pindrapp] Cloudinary parse error:', e, xhr.responseText);
           setError(msg);
           reject(new Error(msg));
         }
@@ -92,6 +110,8 @@ export function useVideoUpload(): UseVideoUpload {
       xhr.onerror = () => {
         setUploading(false);
         const msg = 'Network error';
+        // eslint-disable-next-line no-console
+        console.error('[pindrapp] Cloudinary network error');
         setError(msg);
         reject(new Error(msg));
       };

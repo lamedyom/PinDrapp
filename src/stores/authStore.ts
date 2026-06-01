@@ -89,6 +89,8 @@ interface AuthState {
   profile: UserProfile | null;
   business: BusinessProfile | null;
   error: string | null;
+  /** True when the user tapped "Continue as Guest" — browsing without a session. */
+  isGuest: boolean;
   /** Which guest-gated action is currently asking for sign-up (null = none). */
   guestPromptType: GuestPromptType | null;
 
@@ -108,6 +110,9 @@ interface AuthState {
   /** Opens the guest-prompt sheet for a specific action. */
   showGuestPrompt: (type: GuestPromptType) => void;
   hideGuestPrompt: () => void;
+  /** Tap "Continue as Guest" — browse without a session; restricted actions
+   *  still surface the sign-up sheet. */
+  continueAsGuest: () => void;
 }
 
 /** Which restricted action the visitor just tried — drives the prompt copy. */
@@ -133,6 +138,7 @@ export const useAuthStore = create<AuthState>()(
     profile: null,
     business: null,
     error: null,
+    isGuest: false,
     guestPromptType: null,
 
     initialize: async () => {
@@ -252,6 +258,7 @@ export const useAuthStore = create<AuthState>()(
         s.authUser = null;
         s.profile = null;
         s.business = null;
+        s.isGuest = false;
         s.stage = 'unauthenticated';
       });
     },
@@ -378,6 +385,15 @@ export const useAuthStore = create<AuthState>()(
     hideGuestPrompt: () =>
       set((s) => {
         s.guestPromptType = null;
+      }),
+
+    continueAsGuest: () =>
+      set((s) => {
+        s.isGuest = true;
+        s.profile = null;
+        s.business = null;
+        // Move past unauthenticated so AuthGate stops bouncing to /auth/splash.
+        s.stage = 'disabled';
       }),
   })),
 );

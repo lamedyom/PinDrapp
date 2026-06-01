@@ -51,6 +51,30 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
   const chunksRef = useRef<Blob[]>([]);
   const tickRef = useRef<number | null>(null);
 
+  // Attach the live stream to the <video> with every mobile-safe attribute set
+  // imperatively. The 'playsinline' attribute (not just the JSX prop) is the
+  // critical one — without it iOS Safari shows a black preview even while
+  // recording works.
+  const attachStream = useCallback((stream: MediaStream) => {
+    window.setTimeout(() => {
+      const el = videoRef.current;
+      if (!el) return;
+      el.srcObject = stream;
+      el.setAttribute('playsinline', 'true');
+      el.setAttribute('webkit-playsinline', 'true');
+      el.setAttribute('muted', 'true');
+      el.muted = true;
+      el.autoplay = true;
+      const p = el.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn('[pindrapp] camera autoplay blocked:', err);
+        });
+      }
+    }, 0);
+  }, []);
+
   const stopTracks = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -76,13 +100,7 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
       });
       streamRef.current = stream;
       setMode('armed');
-      // Attach in a microtask once the <video> is mounted.
-      window.setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          void videoRef.current.play().catch(() => {});
-        }
-      }, 0);
+      attachStream(stream);
     } catch (err) {
       const name = err instanceof DOMException ? err.name : '';
       if (name === 'NotAllowedError' || name === 'SecurityError') {
@@ -93,12 +111,7 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           streamRef.current = stream;
           setMode('armed');
-          window.setTimeout(() => {
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-              void videoRef.current.play().catch(() => {});
-            }
-          }, 0);
+          attachStream(stream);
         } catch {
           setStreamErr('No camera found.');
         }
@@ -262,7 +275,21 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
     const recording = mode === 'recording';
     return (
       <div className={styles.recordWrap}>
-        <video ref={videoRef} playsInline muted className={styles.preview} />
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          autoPlay
+          className={styles.preview}
+          // Mirror the live preview so it feels like a selfie cam. The recorded
+          // file itself is unaffected — MediaRecorder writes the raw stream.
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            transform: 'scaleX(-1)',
+          }}
+        />
 
         {recording && (
           <div className={styles.timer}>

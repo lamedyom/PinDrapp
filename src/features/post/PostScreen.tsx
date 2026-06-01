@@ -8,6 +8,7 @@ import { useFeedStore, type FeedCategory } from '../../stores/feedStore';
 import { useDealStore, type Deal } from '../../stores/dealStore';
 import { useMapStore } from '../../stores/mapStore';
 import { useAuthStore } from '../../stores/authStore';
+import { showToast } from '../../stores/toastStore';
 import { useCatalogStore } from '../../stores/catalogStore';
 import { AddLocationSheet, type AddedLocation } from '../places/AddLocationSheet';
 import { createDeal, createPost, uploadImage } from '../../lib/supabaseApi';
@@ -170,11 +171,26 @@ export function PostScreen() {
     setPostError(null);
     setPosting(true);
     try {
+      // Pre-check: a user can be authenticated without a business row yet —
+      // surface that before we burn a Cloudinary upload.
+      const authUser = useAuthStore.getState().authUser;
+      if (authUser && !authBusiness) {
+        setPostError('Please complete your business profile first.');
+        setPosting(false);
+        showToast('Please complete your business profile first');
+        navigate('/onboarding');
+        return;
+      }
+
       let videoUrl: string | undefined;
       try {
         videoUrl = (await upload(video.blob)).url;
-      } catch {
+      } catch (e) {
+        // Cloudinary failed — keep the local blob URL so the post still saves.
+        // eslint-disable-next-line no-console
+        console.warn('[pindrapp] video upload failed, using local blob:', e);
         videoUrl = video.url;
+        showToast('Video saved locally — will sync when connection improves');
       }
 
       let realPostId: string | null = null;
@@ -188,6 +204,8 @@ export function PostScreen() {
             postCategory: feedCategory,
           });
         } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error('[pindrapp] submitUpdate createPost failed:', e);
           setPostError(
             `Couldn't save your update${e instanceof Error ? ` — ${e.message}` : ''}. Please try again.`,
           );

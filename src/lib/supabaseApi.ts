@@ -850,6 +850,12 @@ export interface CreatePostInput {
 
 export async function createPost(input: CreatePostInput): Promise<string | null> {
   if (!supabase) return null;
+  // eslint-disable-next-line no-console
+  console.log('[pindrapp] inserting post', {
+    business_id: input.businessId,
+    post_type: input.postType ?? 'feed',
+    has_video_url: !!input.videoUrl,
+  });
   const { data, error } = await supabase
     .from('posts')
     .insert({
@@ -862,7 +868,18 @@ export async function createPost(input: CreatePostInput): Promise<string | null>
     })
     .select('id')
     .single();
-  if (error) throw error;
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('[pindrapp] post insert error', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      business_id: input.businessId,
+      video_url: input.videoUrl,
+    });
+    throw error;
+  }
   return data?.id ?? null;
 }
 
