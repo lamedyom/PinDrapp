@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { TopBar } from './TopBar';
 import { useDirectionsStore } from '../../stores/directionsStore';
+import { GuestPromptSheet } from '../ui/GuestPromptSheet';
 import styles from './AppShell.module.css';
 
 interface AppShellProps {
@@ -37,6 +38,9 @@ export function AppShell({ children }: AppShellProps) {
         </main>
         {!hideBottomNav && <BottomNav />}
       </div>
+      {/* Global guest sign-up sheet — opens any time a visitor tries a
+          restricted action (like, save, follow, claim). */}
+      <GuestPromptSheet />
     </div>
   );
 }

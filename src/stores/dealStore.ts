@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { useMapStore } from './mapStore';
+import { useAuthStore } from './authStore';
+import { recordDealClaim, savePlaceFor } from '../lib/supabaseApi';
+import { showToast } from './toastStore';
 
 export type DealCategory =
   | 'Food'
@@ -119,16 +122,32 @@ export const useDealStore = create<DealState>()(
     processPayment: async () => {
       const dealId = get().checkoutDealId;
       if (!dealId) return;
+      const auth = useAuthStore.getState();
+      // Guest → close checkout and surface the sign-up prompt instead.
+      if (!auth.profile) {
+        set((s) => {
+          s.checkoutOpen = false;
+          s.checkoutDealId = null;
+          s.checkoutStatus = 'idle';
+        });
+        auth.showGuestPrompt('claim');
+        return;
+      }
       set((s) => {
         s.checkoutStatus = 'loading';
         s.checkoutError = null;
       });
+      // Stand-in for Stripe confirmation latency; the real PaymentIntent
+      // flow happens in CheckoutModal before this resolves.
       await new Promise((resolve) => setTimeout(resolve, 1500));
       set((s) => {
         s.checkoutStatus = 'success';
       });
+
       const deal = get().deals.find((d) => d.id === dealId);
-      // Only auto-pin a deal to the map when it carries real coordinates.
+      const qty = get().checkoutQuantity;
+
+      // Local pin (only when the deal carries real coordinates).
       if (deal && deal.lat != null && deal.lng != null) {
         useMapStore.getState().addSavedPlace({
           id: `deal_${deal.id}`,
@@ -137,9 +156,30 @@ export const useDealStore = create<DealState>()(
           type: 'social',
           category: deal.category.toLowerCase(),
           hasDeal: true,
+          businessId: deal.businessId,
           lat: deal.lat,
           lng: deal.lng,
         });
+      }
+
+      if (!deal?.businessId) return;
+      const amountPaid = (deal.dealPrice ?? 0) * qty;
+
+      // Persist claim + auto-save the business; failures don't block the
+      // success UI (payment already cleared) but we log + toast.
+      try {
+        await recordDealClaim({
+          userId: auth.profile.id,
+          dealId,
+          businessId: deal.businessId,
+          amountPaid,
+        });
+        await savePlaceFor(auth.profile.id, deal.businessId);
+        showToast('Deal claimed! Business saved to your map 📍');
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[pindrapp] failed to record claim:', err);
+        showToast('Deal claimed — saved to your map');
       }
     },
 

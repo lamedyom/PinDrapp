@@ -647,6 +647,27 @@ export function trackDealClaim(dealId: string): void {
   );
 }
 
+/**
+ * Persist a successful deal redemption to the `deal_claims` table — this is
+ * what drives a consumer's Deal History and a business's "Deal Claims" stat.
+ * Throws so the caller can decide what to do on failure.
+ */
+export async function recordDealClaim(input: {
+  userId: string;
+  dealId: string;
+  businessId: string;
+  amountPaid: number;
+}): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from('deal_claims').insert({
+    user_id: input.userId,
+    deal_id: input.dealId,
+    business_id: input.businessId,
+    amount_paid: input.amountPaid,
+  });
+  if (error) throw error;
+}
+
 export interface FollowedBusiness {
   businessId: string;
   name: string;

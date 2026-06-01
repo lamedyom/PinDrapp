@@ -278,6 +278,41 @@ create policy scheduled_owner_write on public.scheduled_posts
     )
   );
 
+-- ============================================================================
+-- deal_claims (a record per successful deal redemption — drives the consumer's
+-- Deal History and the business's "Deal Claims" stat)
+-- ============================================================================
+create table if not exists public.deal_claims (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.users(id) on delete cascade,
+  deal_id     uuid not null references public.deals(id) on delete cascade,
+  business_id uuid not null references public.businesses(id) on delete cascade,
+  amount_paid numeric(10, 2) not null default 0,
+  claimed_at  timestamptz not null default now()
+);
+
+create index if not exists deal_claims_user_idx on public.deal_claims(user_id, claimed_at desc);
+create index if not exists deal_claims_business_idx on public.deal_claims(business_id, claimed_at desc);
+
+alter table public.deal_claims enable row level security;
+
+drop policy if exists deal_claims_self_read on public.deal_claims;
+create policy deal_claims_self_read on public.deal_claims
+  for select
+  using (
+    user_id in (select id from public.users where auth_id = auth.uid())
+    or business_id in (
+      select b.id from public.businesses b
+      join public.users u on u.id = b.user_id
+      where u.auth_id = auth.uid()
+    )
+  );
+
+drop policy if exists deal_claims_self_insert on public.deal_claims;
+create policy deal_claims_self_insert on public.deal_claims
+  for insert
+  with check (user_id in (select id from public.users where auth_id = auth.uid()));
+
 drop policy if exists catalog_read on public.catalog_items;
 create policy catalog_read on public.catalog_items for select using (true);
 
@@ -474,6 +509,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'followers'
   ) then
     alter publication supabase_realtime add table public.followers;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'deal_claims'
+  ) then
+    alter publication supabase_realtime add table public.deal_claims;
   end if;
 end $$;
 

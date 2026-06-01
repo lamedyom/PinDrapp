@@ -89,6 +89,8 @@ interface AuthState {
   profile: UserProfile | null;
   business: BusinessProfile | null;
   error: string | null;
+  /** Which guest-gated action is currently asking for sign-up (null = none). */
+  guestPromptType: GuestPromptType | null;
 
   initialize: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -103,7 +105,13 @@ interface AuthState {
     avatarUrl?: string | null;
     bio?: string | null;
   }) => Promise<void>;
+  /** Opens the guest-prompt sheet for a specific action. */
+  showGuestPrompt: (type: GuestPromptType) => void;
+  hideGuestPrompt: () => void;
 }
+
+/** Which restricted action the visitor just tried — drives the prompt copy. */
+export type GuestPromptType = 'like' | 'save' | 'follow' | 'claim';
 
 function deriveStageFor(
   session: Session | null,
@@ -125,6 +133,7 @@ export const useAuthStore = create<AuthState>()(
     profile: null,
     business: null,
     error: null,
+    guestPromptType: null,
 
     initialize: async () => {
       if (authInitStarted) return;
@@ -360,6 +369,16 @@ export const useAuthStore = create<AuthState>()(
         await sb.from('users').update(payload).eq('id', profile.id);
       }
     },
+
+    showGuestPrompt: (type) =>
+      set((s) => {
+        s.guestPromptType = type;
+      }),
+
+    hideGuestPrompt: () =>
+      set((s) => {
+        s.guestPromptType = null;
+      }),
   })),
 );
 

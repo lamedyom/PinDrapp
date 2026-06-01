@@ -111,6 +111,16 @@ export function useBootstrap(): void {
         refetchDeals();
         refetchMap(); // deals affect green pins on the map
       })
+      // Surface a tiny "new deal nearby" toast when an active deal is inserted.
+      // Listening as a separate handler lets us inspect the row's is_active flag.
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'deals' },
+        (payload) => {
+          const row = payload.new as { is_active?: boolean } | null;
+          if (row?.is_active) showToast('⚡ New deal from a business near you!');
+        },
+      )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, refetchFeed)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_places' }, refetchMap)
       .subscribe();

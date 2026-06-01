@@ -63,39 +63,54 @@ export const useFeedStore = create<FeedState>()(
     hydrated: false,
 
     likePost: (id) => {
-      let nextLiked = false;
+      const auth = useAuthStore.getState();
+      // Guests get the sign-up sheet instead of an optimistic UI bump.
+      if (!auth.profile) {
+        auth.showGuestPrompt('like');
+        return;
+      }
+      // Snapshot the pre-toggle state so we can revert if Supabase rejects.
+      const pre = get().posts.find((p) => p.id === id);
+      if (!pre) return;
+      const nextLiked = !pre.isLiked;
       set((s) => {
         const post = s.posts.find((p) => p.id === id);
         if (!post) return;
-        if (post.isLiked) {
-          post.isLiked = false;
-          post.likeCount = Math.max(0, post.likeCount - 1);
-          nextLiked = false;
-        } else {
-          post.isLiked = true;
-          post.likeCount += 1;
-          nextLiked = true;
-        }
+        post.isLiked = nextLiked;
+        post.likeCount = nextLiked
+          ? post.likeCount + 1
+          : Math.max(0, post.likeCount - 1);
       });
-      // Persist to Supabase if we have an authed session + profile.
-      const auth = useAuthStore.getState();
-      if (auth.profile) {
-        void togglePostLike(auth.profile.id, id, nextLiked).catch(() => {
-          /* keep optimistic UI; user will see eventual consistency */
+      void togglePostLike(auth.profile.id, id, nextLiked).catch(() => {
+        // Revert the optimistic update; the row never landed.
+        set((s) => {
+          const post = s.posts.find((p) => p.id === id);
+          if (!post) return;
+          post.isLiked = !nextLiked;
+          post.likeCount = nextLiked
+            ? Math.max(0, post.likeCount - 1)
+            : post.likeCount + 1;
         });
-      }
+        showToast('Could not save like. Try again.');
+      });
     },
 
     pinPost: (id) => {
+      const auth = useAuthStore.getState();
       const post = get().posts.find((p) => p.id === id);
       if (!post || post.isPinned) return;
+      if (!auth.profile) {
+        auth.showGuestPrompt('save');
+        return;
+      }
+      if (!post.businessId) return; // we need a real business to save
+
+      // Optimistic UI first.
       set((s) => {
         const p = s.posts.find((x) => x.id === id);
         if (p) p.isPinned = true;
       });
-      // Only add to the local map if the post carries real coordinates —
-      // no city fallbacks. The Supabase saved_places row is the source of
-      // truth and will hydrate the pin with whatever the business has.
+      // Drop a local pin when we have coordinates — no city fallbacks.
       if (post.lat != null && post.lng != null) {
         useMapStore.getState().addSavedPlace({
           id: `feed_${post.id}`,
@@ -109,12 +124,17 @@ export const useFeedStore = create<FeedState>()(
           lng: post.lng,
         });
       }
-      // Persist saved_places row when authed.
-      const auth = useAuthStore.getState();
-      if (auth.profile && post.businessId) {
-        void savePlaceFor(auth.profile.id, post.businessId).catch(() => {});
-      }
-      showToast(`${post.businessName} saved to your map`);
+      showToast(`${post.businessName} saved to your map 📍`);
+
+      // Persist; if the row never lands, revert the optimistic state.
+      void savePlaceFor(auth.profile.id, post.businessId).catch(() => {
+        set((s) => {
+          const p = s.posts.find((x) => x.id === id);
+          if (p) p.isPinned = false;
+        });
+        useMapStore.getState().removeSavedPlace(`feed_${post.id}`);
+        showToast('Could not save. Try again.');
+      });
     },
 
     setTab: (tab) =>

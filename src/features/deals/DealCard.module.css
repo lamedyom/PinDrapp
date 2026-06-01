@@ -186,6 +186,24 @@
   gap: 10px;
 }
 
+.footerActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shareBtn {
+  width: 32px;
+  height: 28px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-shell);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
 .price {
   display: inline-flex;
   align-items: baseline;

@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Deal } from '../../stores/dealStore';
 import { useDealStore } from '../../stores/dealStore';
 import { useCountdown } from '../../hooks/useCountdown';
 import { tapHaptic } from '../../lib/haptics';
 import { trackDealClaim, trackDealView } from '../../lib/supabaseApi';
+import { shareContent } from '../../lib/share';
 import styles from './DealCard.module.css';
+
+const DEAL_URL = 'https://pindrapp.onrender.com/deals';
 
 interface DealCardProps {
   deal: Deal;
@@ -114,18 +117,35 @@ export function DealCard({ deal, featuredLabel }: DealCardProps) {
 
         <div className={styles.footer}>
           <PriceDisplay deal={deal} />
-          <button
-            type="button"
-            className={styles.claim}
-            disabled={c.isExpired}
-            onClick={() => {
-              tapHaptic();
-              trackDealClaim(deal.id);
-              openCheckout(deal.id);
-            }}
-          >
-            Claim Deal
-          </button>
+          <div className={styles.footerActions}>
+            <button
+              type="button"
+              className={styles.shareBtn}
+              onClick={() => {
+                tapHaptic();
+                void shareContent({
+                  title: `${deal.headline} — ${deal.businessName}`,
+                  text: `Flash deal on Pindrapp: ${deal.headline}`,
+                  url: `${DEAL_URL}/${deal.id}`,
+                });
+              }}
+              aria-label={`Share ${deal.headline}`}
+            >
+              <Share2 size={14} />
+            </button>
+            <button
+              type="button"
+              className={styles.claim}
+              disabled={c.isExpired}
+              onClick={() => {
+                tapHaptic();
+                trackDealClaim(deal.id);
+                openCheckout(deal.id);
+              }}
+            >
+              Claim Deal
+            </button>
+          </div>
         </div>
 
         <div className={styles.mapRow}>

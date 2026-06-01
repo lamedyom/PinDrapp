@@ -22,6 +22,7 @@ import { useDirectionsStore } from '../../stores/directionsStore';
 import { useUserStore } from '../../stores/userStore';
 import { useCountdown } from '../../hooks/useCountdown';
 import { isSupabaseConfigured } from '../../lib/supabase';
+import { shareContent } from '../../lib/share';
 import {
   fetchBusinessProfile,
   saveCatalogItem,
@@ -104,45 +105,29 @@ export function BusinessProfileScreen() {
   const business = data?.business ?? null;
 
   const handleFollow = async () => {
+    // Guest → prompt to sign up; don't touch local state.
+    if (!profileId) {
+      useAuthStore.getState().showGuestPrompt('follow');
+      return;
+    }
     const next = !following;
     setFollowing(next);
     setFollowerCount((c) => Math.max(0, c + (next ? 1 : -1)));
-    if (profileId && isSupabaseConfigured()) {
-      try {
-        await toggleFollow(profileId, businessId, next);
-      } catch {
-        // revert on failure
-        setFollowing(!next);
-        setFollowerCount((c) => Math.max(0, c + (next ? -1 : 1)));
-        showToast("Couldn't update follow");
-      }
-    } else {
-      showToast(next ? `Following ${business?.name ?? ''}` : 'Unfollowed');
+    try {
+      await toggleFollow(profileId, businessId, next);
+    } catch {
+      setFollowing(!next);
+      setFollowerCount((c) => Math.max(0, c + (next ? -1 : 1)));
+      showToast('Could not follow. Try again.');
     }
   };
 
-  const handleShare = async () => {
-    const url = `${PROFILE_URL}/${businessId}`;
-    const shareData = {
+  const handleShare = () =>
+    shareContent({
       title: business?.name ?? 'Pindrapp',
       text: `Check out ${business?.name ?? 'this business'} on Pindrapp`,
-      url,
-    };
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch {
-        /* user dismissed — fall through to copy */
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Link copied!');
-    } catch {
-      showToast(url);
-    }
-  };
+      url: `${PROFILE_URL}/${businessId}`,
+    });
 
   const handleDirections = () => {
     if (!business || business.lat == null || business.lng == null) {

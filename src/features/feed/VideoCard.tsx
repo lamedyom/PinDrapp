@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heart, MapPin, MessageCircle, Pin } from 'lucide-react';
+import { Heart, MapPin, MessageCircle, Pin, Share2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactPlayer from 'react-player';
 import type { FeedPost } from '../../stores/feedStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { tapHaptic } from '../../lib/haptics';
+import { shareContent } from '../../lib/share';
 import styles from './VideoCard.module.css';
+
+const PROFILE_URL = 'https://pindrapp.onrender.com/profile';
 
 interface VideoCardProps {
   post: FeedPost;
@@ -46,6 +49,15 @@ export function VideoCard({ post }: VideoCardProps) {
       pinPost(post.id);
       setFlyingPin(false);
     }, 500);
+  };
+
+  const handleShare = () => {
+    tapHaptic();
+    void shareContent({
+      title: post.businessName,
+      text: post.caption,
+      url: `${PROFILE_URL}/${post.businessId}`,
+    });
   };
 
   return (
@@ -113,6 +125,15 @@ export function VideoCard({ post }: VideoCardProps) {
             <MessageCircle size={17} strokeWidth={1.8} />
             <span className={styles.likeCount}>{post.commentCount ?? 0}</span>
           </span>
+
+          <button
+            type="button"
+            className={styles.commentBtn}
+            onClick={handleShare}
+            aria-label={`Share ${post.businessName}`}
+          >
+            <Share2 size={17} strokeWidth={1.8} />
+          </button>
 
           {post.isPinned && (
             <span className={styles.pinned}>
