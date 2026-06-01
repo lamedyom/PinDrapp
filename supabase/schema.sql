@@ -444,6 +444,32 @@ create policy deals_owner_write on public.deals
     )
   );
 
+-- Explicit DELETE policies for posts + deals. The `*_owner_write` FOR ALL
+-- policies above already grant DELETE to owners, but PostgREST treats these
+-- DELETE-specific policies as additive so apps that grep for an explicit
+-- "owner delete" rule (CDC tooling, audits) find it.
+drop policy if exists posts_owner_delete on public.posts;
+create policy posts_owner_delete on public.posts
+  for delete
+  using (
+    business_id in (
+      select b.id from public.businesses b
+      join public.users u on u.id = b.user_id
+      where u.auth_id = auth.uid()
+    )
+  );
+
+drop policy if exists deals_owner_delete on public.deals;
+create policy deals_owner_delete on public.deals
+  for delete
+  using (
+    business_id in (
+      select b.id from public.businesses b
+      join public.users u on u.id = b.user_id
+      where u.auth_id = auth.uid()
+    )
+  );
+
 -- SAVED_PLACES: each user reads/writes only their own.
 drop policy if exists saved_places_self on public.saved_places;
 create policy saved_places_self on public.saved_places

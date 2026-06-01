@@ -64,6 +64,7 @@ interface DealState {
   setQuantity: (q: number) => void;
   processPayment: () => Promise<void>;
   addDeal: (deal: Deal) => void;
+  removeDeal: (id: string) => void;
   resetCheckout: () => void;
   hydrate: (deals: Deal[]) => void;
 }
@@ -186,6 +187,11 @@ export const useDealStore = create<DealState>()(
     addDeal: (deal) =>
       set((s) => {
         s.deals.unshift(deal);
+      }),
+
+    removeDeal: (id) =>
+      set((s) => {
+        s.deals = s.deals.filter((d) => d.id !== id);
       }),
 
     hydrate: (deals) =>

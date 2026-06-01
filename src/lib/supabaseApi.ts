@@ -915,6 +915,28 @@ export async function deletePost(postId: string, businessId: string): Promise<vo
   }
 }
 
+/** Delete a deal, scoped to the owning business id (defense in depth on top of RLS). */
+export async function deleteDeal(dealId: string, businessId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('deals')
+    .delete()
+    .eq('id', dealId)
+    .eq('business_id', businessId);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('[pindrapp] delete deal failed:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      deal_id: dealId,
+      business_id: businessId,
+    });
+    throw error;
+  }
+}
+
 export interface CreateDealInput {
   businessId: string;
   headline: string;

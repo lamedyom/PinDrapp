@@ -27,6 +27,7 @@ import { useCountdown } from '../../hooks/useCountdown';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { shareContent } from '../../lib/share';
 import {
+  deleteDeal,
   deletePost,
   fetchBusinessProfile,
   markDealExpired,
@@ -36,6 +37,7 @@ import {
   type BusinessProfileBundle,
 } from '../../lib/supabaseApi';
 import { useFeedStore } from '../../stores/feedStore';
+import { useDealStore } from '../../stores/dealStore';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { showToast } from '../../stores/toastStore';
 import { Button } from '../../components/ui/Button';
@@ -83,6 +85,7 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [playingPost, setPlayingPost] = useState<FeedPost | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deletingDealId, setDeletingDealId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -243,6 +246,21 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
       showToast('Post deleted');
     } catch {
       showToast('Could not delete post. Try again.');
+    }
+  };
+
+  const confirmDeleteDeal = async () => {
+    if (!deletingDealId || !authBusiness) return;
+    const id = deletingDealId;
+    setDeletingDealId(null);
+    // Optimistic: drop from the bundle + the global deal store.
+    setData((d) => (d ? { ...d, deals: d.deals.filter((x) => x.id !== id) } : d));
+    useDealStore.getState().removeDeal(id);
+    try {
+      await deleteDeal(id, authBusiness.id);
+      showToast('Deal removed');
+    } catch {
+      showToast('Could not delete deal. Try again.');
     }
   };
 
@@ -477,13 +495,24 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
               </div>
             ) : null}
             {activeDeals.map((d) => (
-              <DealRow key={d.id} deal={d} isOwner={isOwner} />
+              <DealRow
+                key={d.id}
+                deal={d}
+                isOwner={isOwner}
+                onDelete={isOwner ? setDeletingDealId : undefined}
+              />
             ))}
             {pastDeals.length > 0 && (
               <>
                 <div className={styles.groupLabel}>Past deals</div>
                 {pastDeals.map((d) => (
-                  <DealRow key={d.id} deal={d} ended isOwner={isOwner} />
+                  <DealRow
+                    key={d.id}
+                    deal={d}
+                    ended
+                    isOwner={isOwner}
+                    onDelete={isOwner ? setDeletingDealId : undefined}
+                  />
                 ))}
               </>
             )}
@@ -535,6 +564,14 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
         confirmLabel="Delete"
         onConfirm={() => void confirmDeletePost()}
         onCancel={() => setDeletingPostId(null)}
+      />
+      <ConfirmDialog
+        open={!!deletingDealId}
+        title="Delete this deal?"
+        body="Customers will no longer see it in the deals feed."
+        confirmLabel="Delete"
+        onConfirm={() => void confirmDeleteDeal()}
+        onCancel={() => setDeletingDealId(null)}
       />
     </div>
   );
@@ -666,10 +703,12 @@ function DealRow({
   deal,
   ended,
   isOwner = false,
+  onDelete,
 }: {
   deal: Deal;
   ended?: boolean;
   isOwner?: boolean;
+  onDelete?: (dealId: string) => void;
 }) {
   const c = useCountdown(deal.expiresAt);
   const expiredRef = useRef(false);
@@ -704,6 +743,16 @@ function DealRow({
           ? `Ended ${deal.expiresAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
           : `${pad(c.hours)}:${pad(c.minutes)}:${pad(c.seconds)}`}
       </span>
+      {isOwner && onDelete && (
+        <button
+          type="button"
+          className={styles.dealDelete}
+          aria-label="Delete deal"
+          onClick={() => onDelete(deal.id)}
+        >
+          <Trash2 size={13} />
+        </button>
+      )}
     </div>
   );
 }

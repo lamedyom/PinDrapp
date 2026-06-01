@@ -453,6 +453,24 @@
   color: var(--green);
 }
 
+.dealDelete {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-shell);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.dealDelete:hover {
+  color: var(--red);
+  border-color: rgba(255, 58, 58, 0.3);
+}
+
 .dealBadgeEnded {
   background: var(--bg-shell);
   color: var(--text-muted);
