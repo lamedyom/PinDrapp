@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Camera, Check, RotateCcw, Trash2, UploadCloud, X } from 'lucide-react';
+import { Camera, Check, RefreshCw, RotateCcw, Trash2, UploadCloud, X } from 'lucide-react';
 import styles from './VideoSelector.module.css';
 
 export interface SelectedVideo {
@@ -56,15 +56,17 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
   // critical one — without it iOS Safari shows a black preview even while
   // recording works.
   const attachStream = useCallback((stream: MediaStream) => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.srcObject = stream;
+    el.setAttribute('playsinline', 'true');
+    el.setAttribute('webkit-playsinline', 'true');
+    el.setAttribute('muted', 'true');
+    el.muted = true;
+    el.autoplay = true;
+    // Small delay before play() — some mobile browsers race the element
+    // mount with the srcObject assignment and need a tick.
     window.setTimeout(() => {
-      const el = videoRef.current;
-      if (!el) return;
-      el.srcObject = stream;
-      el.setAttribute('playsinline', 'true');
-      el.setAttribute('webkit-playsinline', 'true');
-      el.setAttribute('muted', 'true');
-      el.muted = true;
-      el.autoplay = true;
       const p = el.play();
       if (p && typeof p.catch === 'function') {
         p.catch((err) => {
@@ -72,8 +74,14 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
           console.warn('[pindrapp] camera autoplay blocked:', err);
         });
       }
-    }, 0);
+    }, 100);
   }, []);
+
+  // Front-vs-rear camera. `armCamera` reads this to request the right facing
+  // mode. The flip button below stops the current stream and re-arms.
+  const [facing, setFacing] = useState<'environment' | 'user'>('environment');
+  const facingRef = useRef(facing);
+  facingRef.current = facing;
 
   const stopTracks = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -95,7 +103,7 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+        video: { facingMode: facingRef.current, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
       });
       streamRef.current = stream;
@@ -186,6 +194,17 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
     stopTracks();
     setMode('idle');
     setElapsed(0);
+  };
+
+  const flipCamera = () => {
+    // Only swap while armed (not actively recording) — avoid mid-recording
+    // codec resets.
+    if (mode !== 'armed') return;
+    const next = facingRef.current === 'environment' ? 'user' : 'environment';
+    setFacing(next);
+    facingRef.current = next;
+    stopTracks();
+    void armCamera();
   };
 
   const retake = () => {
@@ -309,6 +328,17 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
         >
           <X size={18} />
         </button>
+
+        {!recording && (
+          <button
+            type="button"
+            className={styles.flipCamera}
+            aria-label="Flip camera"
+            onClick={flipCamera}
+          >
+            <RefreshCw size={16} />
+          </button>
+        )}
 
         <button
           type="button"

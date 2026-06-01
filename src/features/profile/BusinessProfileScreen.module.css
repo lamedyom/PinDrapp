@@ -331,14 +331,39 @@
   padding: 0 16px;
 }
 
+.cellWrap {
+  position: relative;
+}
+
 .cell {
   position: relative;
+  width: 100%;
   aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.cellDelete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+  z-index: 2;
+}
+
+.cellDelete:hover {
+  color: var(--red);
 }
 
 .cellVideo {

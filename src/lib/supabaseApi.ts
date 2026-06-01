@@ -883,6 +883,28 @@ export async function createPost(input: CreatePostInput): Promise<string | null>
   return data?.id ?? null;
 }
 
+/** Delete a post, scoped to the owning business id so RLS catches mistakes. */
+export async function deletePost(postId: string, businessId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('posts')
+    .delete()
+    .eq('id', postId)
+    .eq('business_id', businessId);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('[pindrapp] delete post failed:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      post_id: postId,
+      business_id: businessId,
+    });
+    throw error;
+  }
+}
+
 export interface CreateDealInput {
   businessId: string;
   headline: string;

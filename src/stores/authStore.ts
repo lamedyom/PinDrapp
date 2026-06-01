@@ -116,7 +116,7 @@ interface AuthState {
 }
 
 /** Which restricted action the visitor just tried — drives the prompt copy. */
-export type GuestPromptType = 'like' | 'save' | 'follow' | 'claim';
+export type GuestPromptType = 'like' | 'save' | 'follow' | 'claim' | 'post';
 
 function deriveStageFor(
   session: Session | null,

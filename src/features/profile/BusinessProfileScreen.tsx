@@ -27,6 +27,7 @@ import { useCountdown } from '../../hooks/useCountdown';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { shareContent } from '../../lib/share';
 import {
+  deletePost,
   fetchBusinessProfile,
   markDealExpired,
   saveCatalogItem,
@@ -34,6 +35,8 @@ import {
   toggleFollow,
   type BusinessProfileBundle,
 } from '../../lib/supabaseApi';
+import { useFeedStore } from '../../stores/feedStore';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { showToast } from '../../stores/toastStore';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -79,6 +82,7 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
   const [catalogFormOpen, setCatalogFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [playingPost, setPlayingPost] = useState<FeedPost | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,6 +229,21 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
     setCatalog((list) => list.filter((i) => i.id !== item.id));
     showToast('Item removed');
     if (isOwner && isSupabaseConfigured()) void deleteCatalogItem(item.id).catch(() => {});
+  };
+
+  const confirmDeletePost = async () => {
+    if (!deletingPostId || !authBusiness) return;
+    const id = deletingPostId;
+    setDeletingPostId(null);
+    // Optimistic: drop from the bundle in-place + the global feed store too.
+    setData((d) => (d ? { ...d, posts: d.posts.filter((p) => p.id !== id) } : d));
+    useFeedStore.getState().removePost(id);
+    try {
+      await deletePost(id, authBusiness.id);
+      showToast('Post deleted');
+    } catch {
+      showToast('Could not delete post. Try again.');
+    }
   };
 
   if (loading) return <ProfileSkeleton onBack={() => navigate(-1)} />;
@@ -404,20 +423,34 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
           ) : (
             <div className={styles.grid}>
               {posts.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={styles.cell}
-                  style={{ background: p.thumbnailGradient }}
-                  onClick={() => setPlayingPost(p)}
-                  aria-label="Play update"
-                >
-                  {p.videoUrl ? (
-                    <video className={styles.cellVideo} src={p.videoUrl} muted playsInline />
-                  ) : (
-                    <span className={styles.cellEmoji}>{p.businessEmoji}</span>
+                <div key={p.id} className={styles.cellWrap}>
+                  <button
+                    type="button"
+                    className={styles.cell}
+                    style={{ background: p.thumbnailGradient }}
+                    onClick={() => setPlayingPost(p)}
+                    aria-label="Play update"
+                  >
+                    {p.videoUrl ? (
+                      <video className={styles.cellVideo} src={p.videoUrl} muted playsInline />
+                    ) : (
+                      <span className={styles.cellEmoji}>{p.businessEmoji}</span>
+                    )}
+                  </button>
+                  {isOwner && (
+                    <button
+                      type="button"
+                      className={styles.cellDelete}
+                      aria-label="Delete post"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeletingPostId(p.id);
+                      }}
+                    >
+                      <Trash2 size={11} />
+                    </button>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           ))}
@@ -495,6 +528,14 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
       />
       {isOwner && <EditProfileModal />}
       <FullScreenVideoModal post={playingPost} onClose={() => setPlayingPost(null)} />
+      <ConfirmDialog
+        open={!!deletingPostId}
+        title="Delete this post?"
+        body="This will permanently remove your update from the feed and your profile."
+        confirmLabel="Delete"
+        onConfirm={() => void confirmDeletePost()}
+        onCancel={() => setDeletingPostId(null)}
+      />
     </div>
   );
 }

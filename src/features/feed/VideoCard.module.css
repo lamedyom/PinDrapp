@@ -76,6 +76,60 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+.topRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.menuBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  min-width: 140px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.menuItemDanger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--red);
+  text-align: left;
+}
+
+.menuItemDanger:hover {
+  background: rgba(255, 58, 58, 0.08);
+}
+
 .distance {
   display: inline-flex;
   align-items: center;

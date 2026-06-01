@@ -1,5 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Home, MapPin, Zap, User, Plus } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
 import styles from './BottomNav.module.css';
 
 interface NavTab {
@@ -32,7 +33,15 @@ export function BottomNav() {
         type="button"
         aria-label="Create post"
         className={`${styles.postBtn} ${onPostScreen ? styles.postBtnActive : ''}`}
-        onClick={() => navigate('/post')}
+        onClick={() => {
+          // Guests / signed-out users hit the sign-up wall instead of /post.
+          const auth = useAuthStore.getState();
+          if (auth.isGuest || !auth.profile) {
+            auth.showGuestPrompt('post');
+            return;
+          }
+          navigate('/post');
+        }}
       >
         <Plus size={22} strokeWidth={2.5} color="#fff" />
       </button>

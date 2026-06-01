@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heart, MapPin, MessageCircle, Pin, Share2 } from 'lucide-react';
+import { Heart, MapPin, MessageCircle, MoreHorizontal, Pin, Share2, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactPlayer from 'react-player';
 import type { FeedPost } from '../../stores/feedStore';
 import { useFeedStore } from '../../stores/feedStore';
+import { useAuthStore } from '../../stores/authStore';
 import { tapHaptic } from '../../lib/haptics';
 import { shareContent } from '../../lib/share';
+import { deletePost } from '../../lib/supabaseApi';
+import { showToast } from '../../stores/toastStore';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import styles from './VideoCard.module.css';
 
 const PROFILE_URL = 'https://pindrapp.onrender.com/profile';
@@ -17,10 +21,15 @@ interface VideoCardProps {
 export function VideoCard({ post }: VideoCardProps) {
   const likePost = useFeedStore((s) => s.likePost);
   const pinPost = useFeedStore((s) => s.pinPost);
+  const removePost = useFeedStore((s) => s.removePost);
+  const authBusiness = useAuthStore((s) => s.business);
+  const isMine = !!authBusiness && authBusiness.id === post.businessId;
 
   const [visible, setVisible] = useState(false);
   const [flyingPin, setFlyingPin] = useState(false);
   const [likeBurst, setLikeBurst] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +69,23 @@ export function VideoCard({ post }: VideoCardProps) {
     });
   };
 
+  const handleDelete = async () => {
+    if (!authBusiness) return;
+    // Optimistic: remove immediately; restore on error.
+    removePost(post.id);
+    setConfirmDelete(false);
+    setMenuOpen(false);
+    try {
+      await deletePost(post.id, authBusiness.id);
+      showToast('Post deleted');
+    } catch {
+      // Best-effort revert — re-add at the original position is hard once
+      // gone, so just re-insert at the top with the data we still hold.
+      useFeedStore.getState().prependPost(post);
+      showToast('Could not delete post. Try again.');
+    }
+  };
+
   return (
     <div
       ref={cardRef}
@@ -91,8 +117,41 @@ export function VideoCard({ post }: VideoCardProps) {
             <div className={styles.bizCat}>{post.businessCategory}</div>
           </div>
         </div>
-        <div className={styles.distance}>
-          <MapPin size={11} /> {post.distanceMiles.toFixed(1)} mi
+        <div className={styles.topRight}>
+          <div className={styles.distance}>
+            <MapPin size={11} /> {post.distanceMiles.toFixed(1)} mi
+          </div>
+          {isMine && (
+            <div className={styles.menuWrap}>
+              <button
+                type="button"
+                className={styles.menuBtn}
+                aria-label="Post options"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen((m) => !m);
+                }}
+                onBlur={() => window.setTimeout(() => setMenuOpen(false), 120)}
+              >
+                <MoreHorizontal size={14} />
+              </button>
+              {menuOpen && (
+                <div className={styles.menu}>
+                  <button
+                    type="button"
+                    className={styles.menuItemDanger}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setMenuOpen(false);
+                      setConfirmDelete(true);
+                    }}
+                  >
+                    <Trash2 size={13} /> Delete Post
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -174,6 +233,15 @@ export function VideoCard({ post }: VideoCardProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this post?"
+        body="This will permanently remove your update from the feed and your profile."
+        confirmLabel="Delete"
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

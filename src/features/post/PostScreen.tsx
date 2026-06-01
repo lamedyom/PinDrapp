@@ -171,9 +171,26 @@ export function PostScreen() {
     setPostError(null);
     setPosting(true);
     try {
+      const authUser = useAuthStore.getState().authUser;
+      // eslint-disable-next-line no-console
+      console.log('=== POST SUBMIT DEBUG ===');
+      // eslint-disable-next-line no-console
+      console.log('Auth user:', authUser?.id);
+      // eslint-disable-next-line no-console
+      console.log('Auth user email:', authUser?.email);
+      // eslint-disable-next-line no-console
+      console.log('Business from store:', authBusiness?.id);
+      // eslint-disable-next-line no-console
+      console.log('Video:', video?.fileName ?? 'recording', 'size:', video?.blob && 'size' in video.blob ? (video.blob as Blob).size : 'n/a');
+      // eslint-disable-next-line no-console
+      console.log('Caption:', caption);
+      // eslint-disable-next-line no-console
+      console.log('Cloudinary cloud:', import.meta.env.VITE_CLOUDINARY_CLOUD_NAME);
+      // eslint-disable-next-line no-console
+      console.log('=========================');
+
       // Pre-check: a user can be authenticated without a business row yet —
       // surface that before we burn a Cloudinary upload.
-      const authUser = useAuthStore.getState().authUser;
       if (authUser && !authBusiness) {
         setPostError('Please complete your business profile first.');
         setPosting(false);

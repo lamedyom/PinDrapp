@@ -4,7 +4,7 @@ import { Modal } from './Modal';
 import { Button } from './Button';
 import styles from './GuestPromptSheet.module.css';
 
-const COPY: Record<GuestPromptType, { title: string; body: string }> = {
+const COPY: Record<GuestPromptType, { title: string; body: string; primaryLabel?: string }> = {
   like: {
     title: 'Like this update',
     body: 'Join Pindrapp to support the local businesses you love.',
@@ -20,6 +20,11 @@ const COPY: Record<GuestPromptType, { title: string; body: string }> = {
   claim: {
     title: 'Claim this deal',
     body: 'Sign up free in seconds to save on flash deals near you.',
+  },
+  post: {
+    title: 'Share your business',
+    body: 'Create an account to post updates, flash deals, and grow your customer base.',
+    primaryLabel: 'Create Business Account',
   },
 };
 
@@ -46,7 +51,7 @@ export function GuestPromptSheet() {
             fullWidth
             onClick={() => go('/auth/email?mode=signup')}
           >
-            Create Free Account
+            {copy.primaryLabel ?? 'Create Free Account'}
           </Button>
           <Button
             variant="outline"

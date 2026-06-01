@@ -262,6 +262,21 @@
   z-index: 2;
 }
 
+.flipCamera {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
 .recordBtn {
   position: absolute;
   bottom: 18px;

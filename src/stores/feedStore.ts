@@ -50,6 +50,7 @@ interface FeedState {
   pinPost: (id: string) => void;
   setTab: (tab: FeedTab) => void;
   prependPost: (post: FeedPost) => void;
+  removePost: (id: string) => void;
   hydrate: (posts: FeedPost[]) => void;
   setLoading: (loading: boolean) => void;
 }
@@ -145,6 +146,11 @@ export const useFeedStore = create<FeedState>()(
     prependPost: (post) =>
       set((s) => {
         s.posts.unshift(post);
+      }),
+
+    removePost: (id) =>
+      set((s) => {
+        s.posts = s.posts.filter((p) => p.id !== id);
       }),
 
     hydrate: (posts) =>
