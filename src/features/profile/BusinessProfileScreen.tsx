@@ -15,9 +15,8 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useFeedStore } from '../../stores/feedStore';
-import { useDealStore, type Deal } from '../../stores/dealStore';
-import { useCatalogStore, type CatalogItem } from '../../stores/catalogStore';
+import type { Deal } from '../../stores/dealStore';
+import type { CatalogItem } from '../../stores/catalogStore';
 import { useMapStore } from '../../stores/mapStore';
 import { useDirectionsStore } from '../../stores/directionsStore';
 import { useUserStore } from '../../stores/userStore';
@@ -29,7 +28,6 @@ import {
   deleteCatalogItem,
   toggleFollow,
   type BusinessProfileBundle,
-  type ProfileBusiness,
 } from '../../lib/supabaseApi';
 import { showToast } from '../../stores/toastStore';
 import { Button } from '../../components/ui/Button';
@@ -678,52 +676,8 @@ function emojiFor(category: string): string {
 }
 
 // Resolve a business profile from the seeded stores (offline demo mode).
-function resolveMock(businessId: string): BusinessProfileBundle | null {
-  const posts = useFeedStore.getState().posts.filter((p) => p.businessId === businessId);
-  const explore = useMapStore.getState().explorePlaces.find((e) => e.id === businessId);
-  const saved = useMapStore.getState().savedPlaces.find((s) => s.businessId === businessId);
-
-  const name = posts[0]?.businessName ?? explore?.name ?? saved?.name;
-  if (!name) return null;
-  const category = posts[0]?.businessCategory ?? explore?.category ?? saved?.category ?? 'Business';
-  const lat = posts[0]?.lat ?? explore?.lat ?? saved?.lat ?? null;
-  const lng = posts[0]?.lng ?? explore?.lng ?? saved?.lng ?? null;
-
-  const isPro =
-    posts[0]?.isPro ??
-    explore?.isPro ??
-    saved?.isPro ??
-    useDealStore.getState().deals.some((d) => d.businessName === name && d.isPro) ??
-    false;
-
-  const business: ProfileBusiness = {
-    id: businessId,
-    name,
-    category,
-    bio: 'A local favorite on Pindrapp.',
-    address: 'Downtown Hollywood, FL',
-    lat,
-    lng,
-    website: 'pindrapp.onrender.com',
-    instagram: name.toLowerCase().replace(/[^a-z0-9]+/g, ''),
-    phone: '+1 (954) 555-0142',
-    avatarUrl: null,
-    coverPhotoUrl: null,
-    followerCount: isPro ? 612 : 128,
-    isPro,
-  };
-
-  const deals = useDealStore.getState().deals.filter((d) => d.businessName === name);
-  const catalog = useCatalogStore.getState().items;
-
-  return {
-    business,
-    posts,
-    deals,
-    catalog,
-    followerCount: business.followerCount,
-    isFollowing: false,
-    postCount: posts.length,
-    mapSaveCount: 37,
-  };
+// Offline / unconfigured Supabase mode: we never fabricate a business
+// profile. Callers fall through to the not-found view.
+function resolveMock(_businessId: string): BusinessProfileBundle | null {
+  return null;
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, LogOut, MapPin } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useMapStore, type SavedPlace } from '../../stores/mapStore';
+import type { SavedPlace } from '../../stores/mapStore';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import {
   fetchFollowing,
@@ -23,28 +23,6 @@ interface ClaimedDeal {
   amountSaved: number;
 }
 
-const MOCK_FOLLOWING: FollowedBusiness[] = [
-  { businessId: 'b1', name: "GG's Waterfront", category: 'Steakhouse', avatarUrl: null, emoji: '🥩', isPro: true },
-  { businessId: 'b3', name: 'Sage Bagel & Deli', category: 'Bakery', avatarUrl: null, emoji: '🥐', isPro: true },
-  { businessId: 'b6', name: 'Tap 42 Hollywood', category: 'Coffee', avatarUrl: null, emoji: '☕', isPro: true },
-];
-
-const MOCK_CLAIMED: ClaimedDeal[] = [
-  {
-    id: 'cd1',
-    businessName: "GG's Waterfront",
-    headline: 'Sunset Surf & Turf for Two',
-    date: new Date(Date.now() - 2 * 86400000),
-    amountSaved: 36,
-  },
-  {
-    id: 'cd2',
-    businessName: 'Green Garden Bowls',
-    headline: 'Any Grain Bowl 30% Off',
-    date: new Date(Date.now() - 6 * 86400000),
-    amountSaved: 5,
-  },
-];
 
 export function ConsumerProfileScreen() {
   const navigate = useNavigate();
@@ -69,22 +47,21 @@ export function ConsumerProfileScreen() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      if (isSupabaseConfigured() && profile) {
-        const [savedRes, followRes] = await Promise.all([
-          fetchSavedPlaces(profile.id),
-          fetchFollowing(profile.id),
-        ]);
-        if (cancelled) return;
-        setSaved(savedRes.filter((p) => p.businessId));
-        setFollowing(followRes);
-        setClaimed([]); // claim history persists once a claims table exists
-      } else {
-        // Demo mode — populate from the seeded stores so the screen is alive.
-        if (cancelled) return;
-        setSaved(useMapStore.getState().savedPlaces.filter((p) => p.businessId));
-        setFollowing(MOCK_FOLLOWING);
-        setClaimed(MOCK_CLAIMED);
+      if (!profile) {
+        setSaved([]);
+        setFollowing([]);
+        setClaimed([]);
+        return;
       }
+      // Real Supabase reads only — no mock fallback. Empty results show empty states.
+      const [savedRes, followRes] = await Promise.all([
+        fetchSavedPlaces(profile.id),
+        fetchFollowing(profile.id),
+      ]);
+      if (cancelled) return;
+      setSaved(savedRes.filter((p) => p.businessId));
+      setFollowing(followRes);
+      setClaimed([]); // claim history will hydrate once a claims table exists
     };
     void load();
     return () => {

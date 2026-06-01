@@ -54,126 +54,10 @@ interface FeedState {
   setLoading: (loading: boolean) => void;
 }
 
-// Hollywood, FL feed seed — business names and coordinates match the same
-// businesses surfaced on the map (mapStore) and the deals (dealStore).
-const mockPosts: FeedPost[] = [
-  {
-    id: 'p1',
-    businessId: 'b1',
-    businessName: "GG's Waterfront",
-    businessCategory: 'Steakhouse',
-    businessEmoji: '🥩',
-    caption: 'Surf & turf hitting the pass — sunset service is live on the Broadwalk tonight.',
-    likeCount: 148,
-    commentCount: 12,
-    distanceMiles: 1.7,
-    isLiked: false,
-    isPinned: true,
-    isPro: true,
-    postCategory: 'behindTheScenes',
-    createdAt: new Date(Date.now() - 3600000),
-    thumbnailGradient: 'linear-gradient(160deg,#1a0d2e,#0d1f3c)',
-    lat: 26.0177,
-    lng: -80.1148,
-  },
-  {
-    id: 'p2',
-    businessId: 'b2',
-    businessName: 'Green Garden Bowls',
-    businessCategory: 'Vegan',
-    businessEmoji: '🥗',
-    caption: "Today's rainbow grain bowl, built fresh to order. Come say hi 🌱",
-    likeCount: 87,
-    commentCount: 4,
-    distanceMiles: 0.5,
-    isLiked: false,
-    isPinned: false,
-    postCategory: 'menuItem',
-    createdAt: new Date(Date.now() - 7200000),
-    thumbnailGradient: 'linear-gradient(160deg,#0f1f0f,#1a2a1a)',
-    isLive: true,
-    lat: 26.0098,
-    lng: -80.1465,
-  },
-  {
-    id: 'p3',
-    businessId: 'b3',
-    businessName: 'Sage Bagel & Deli',
-    businessCategory: 'Bakery',
-    businessEmoji: '🥐',
-    caption: 'Fresh from the kettle — sesame bagels still warm. Friday batch is the best one.',
-    likeCount: 203,
-    commentCount: 18,
-    distanceMiles: 0.6,
-    isLiked: true,
-    isPinned: false,
-    isPro: true,
-    postCategory: 'newStock',
-    createdAt: new Date(Date.now() - 10800000),
-    thumbnailGradient: 'linear-gradient(160deg,#2a1a00,#1a1000)',
-    lat: 26.015,
-    lng: -80.152,
-  },
-  {
-    id: 'p4',
-    businessId: 'b4',
-    businessName: 'Hollywood Boulevard Boutique',
-    businessCategory: 'Fashion',
-    businessEmoji: '👗',
-    caption: 'New summer collection just dropped. Swing by and see it in person.',
-    likeCount: 56,
-    commentCount: 2,
-    distanceMiles: 0.2,
-    isLiked: false,
-    isPinned: false,
-    postCategory: 'newStock',
-    createdAt: new Date(Date.now() - 14400000),
-    thumbnailGradient: 'linear-gradient(160deg,#0d1f3c,#1a0d2e)',
-    lat: 26.0125,
-    lng: -80.1502,
-  },
-  {
-    id: 'p5',
-    businessId: 'b5',
-    businessName: 'Solo Pizza Napoletana',
-    businessCategory: 'Italian',
-    businessEmoji: '🍕',
-    caption: 'Just pulled this margherita out of the stone oven. Come hungry tonight.',
-    likeCount: 312,
-    commentCount: 27,
-    distanceMiles: 0.3,
-    isLiked: false,
-    isPinned: false,
-    postCategory: 'behindTheScenes',
-    createdAt: new Date(Date.now() - 18000000),
-    thumbnailGradient: 'linear-gradient(160deg,#2a0a0a,#1a1020)',
-    lat: 26.0107,
-    lng: -80.148,
-  },
-  {
-    id: 'p6',
-    businessId: 'b6',
-    businessName: 'Tap 42 Hollywood',
-    businessCategory: 'Coffee',
-    businessEmoji: '☕',
-    caption: 'Monday morning reset. Ethiopian pour-over, slow batch. Doors open at 7.',
-    likeCount: 74,
-    commentCount: 6,
-    distanceMiles: 0.4,
-    isLiked: false,
-    isPinned: false,
-    isPro: true,
-    postCategory: 'announcement',
-    createdAt: new Date(Date.now() - 21600000),
-    thumbnailGradient: 'linear-gradient(160deg,#1a1000,#2a1a00)',
-    lat: 26.0095,
-    lng: -80.1455,
-  },
-];
 
 export const useFeedStore = create<FeedState>()(
   immer((set, get) => ({
-    posts: mockPosts,
+    posts: [],
     activeTab: 'updates',
     loading: false,
     hydrated: false,
@@ -209,17 +93,22 @@ export const useFeedStore = create<FeedState>()(
         const p = s.posts.find((x) => x.id === id);
         if (p) p.isPinned = true;
       });
-      useMapStore.getState().addSavedPlace({
-        id: `feed_${post.id}`,
-        name: post.businessName,
-        emoji: post.businessEmoji,
-        type: 'social',
-        category: post.businessCategory.toLowerCase(),
-        hasDeal: false,
-        businessId: post.businessId,
-        lat: post.lat ?? 40.7505,
-        lng: post.lng ?? -73.9845,
-      });
+      // Only add to the local map if the post carries real coordinates —
+      // no city fallbacks. The Supabase saved_places row is the source of
+      // truth and will hydrate the pin with whatever the business has.
+      if (post.lat != null && post.lng != null) {
+        useMapStore.getState().addSavedPlace({
+          id: `feed_${post.id}`,
+          name: post.businessName,
+          emoji: post.businessEmoji,
+          type: 'social',
+          category: post.businessCategory.toLowerCase(),
+          hasDeal: false,
+          businessId: post.businessId,
+          lat: post.lat,
+          lng: post.lng,
+        });
+      }
       // Persist saved_places row when authed.
       const auth = useAuthStore.getState();
       if (auth.profile && post.businessId) {

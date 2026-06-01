@@ -85,75 +85,17 @@ interface MapState {
   setSearchedLocation: (loc: SearchedLocation | null) => void;
 }
 
-// All seed locations are placed around Hollywood, FL so the app's directions,
-// save-to-map and explore features can be exercised from a Hollywood-area device.
-// Downtown Hollywood / Young Circle ≈ 26.0118, -80.1495
-// Hollywood Beach Broadwalk        ≈ 26.0170, -80.1150
-// Residential west of downtown     ≈ 26.0080, -80.1700
-const mockSavedPlaces: SavedPlace[] = [
-  { id: 'sp1', name: 'Home', emoji: '🏠', type: 'home', lat: 26.008, lng: -80.17 },
-  { id: 'sp2', name: 'Work', emoji: '💼', type: 'work', lat: 26.0118, lng: -80.149 },
-  {
-    id: 'sp3',
-    name: "GG's Waterfront",
-    emoji: '🥩',
-    type: 'social',
-    category: 'food',
-    hasDeal: true,
-    businessId: 'b1',
-    isPro: true,
-    lat: 26.0177,
-    lng: -80.1148,
-    savedAt: new Date(),
-  },
-  {
-    id: 'sp4',
-    name: 'Green Garden Bowls',
-    emoji: '🥗',
-    type: 'social',
-    category: 'food',
-    hasDeal: true,
-    businessId: 'b2',
-    lat: 26.0098,
-    lng: -80.1465,
-    savedAt: new Date(),
-  },
-  {
-    id: 'sp5',
-    name: "Hollywood Boulevard Boutique",
-    emoji: '👗',
-    type: 'saved',
-    category: 'shopping',
-    hasDeal: false,
-    businessId: 'b4',
-    lat: 26.0125,
-    lng: -80.1502,
-    savedAt: new Date(),
-  },
-];
-
-const mockExplorePlaces: ExploreBusiness[] = [
-  { id: 'e1', name: 'Solo Pizza Napoletana', emoji: '🍕', category: 'Food', distanceMiles: 0.3, hasDeal: false, lat: 26.0107, lng: -80.148 },
-  { id: 'e2', name: 'Sage Bagel & Deli', emoji: '🥐', category: 'Bakery', distanceMiles: 0.6, hasDeal: true, isPro: true, lat: 26.015, lng: -80.152 },
-  { id: 'e3', name: 'Tap 42 Hollywood', emoji: '☕', category: 'Coffee', distanceMiles: 0.4, hasDeal: false, isPro: true, lat: 26.0095, lng: -80.1455 },
-  { id: 'e4', name: 'Hollywood Meat Market', emoji: '🔪', category: 'Market', distanceMiles: 0.9, hasDeal: false, lat: 26.008, lng: -80.1545 },
-  { id: 'e5', name: 'Vino & Vine Wine Bar', emoji: '🍷', category: 'Wine', distanceMiles: 0.5, hasDeal: true, lat: 26.0135, lng: -80.145 },
-  { id: 'e6', name: 'Sushi Song Hollywood', emoji: '🍣', category: 'Japanese', distanceMiles: 0.8, hasDeal: false, lat: 26.0162, lng: -80.1395 },
-  { id: 'e7', name: 'Hollywood Gold & Gems', emoji: '💎', category: 'Jewelry', distanceMiles: 0.2, hasDeal: false, lat: 26.0118, lng: -80.1505 },
-  { id: 'e8', name: 'The Juice Lab Broadwalk', emoji: '🥤', category: 'Juice Bar', distanceMiles: 1.7, hasDeal: true, lat: 26.0173, lng: -80.1153 },
-  { id: 'e9', name: 'Books & Books Hollywood', emoji: '📚', category: 'Books', distanceMiles: 0.4, hasDeal: false, lat: 26.0089, lng: -80.148 },
-  { id: 'e10', name: 'Hollywood Tech Repair', emoji: '📱', category: 'Electronics', distanceMiles: 1.1, hasDeal: false, lat: 26.0058, lng: -80.1525 },
-];
 
 export const useMapStore = create<MapState>()(
   immer((set, get) => ({
-    savedPlaces: mockSavedPlaces,
-    explorePlaces: mockExplorePlaces,
+    savedPlaces: [],
+    explorePlaces: [],
     activeTab: 'myPlaces',
     selectedPinId: null,
     activePopupId: null,
     userLocation: null,
-    mapCenter: { lat: 40.7484, lng: -73.9857, zoom: 13 },
+    // Neutral world view; the real center comes from GPS on map mount.
+    mapCenter: { lat: 39.8283, lng: -98.5795, zoom: 3 },
     flyTarget: null,
     searchQuery: '',
     searchedLocation: null,
@@ -252,16 +194,12 @@ export const useMapStore = create<MapState>()(
 
     hydrateSaved: (places) =>
       set((s) => {
-        // Keep Home/Work tiles seeded from mock — they're user-personal
-        // anchors not yet modeled as a separate table. Replace the rest
-        // (the social/saved ones) with what Supabase says.
-        const permanent = s.savedPlaces.filter((p) => p.type === 'home' || p.type === 'work');
-        s.savedPlaces = [...permanent, ...places];
+        s.savedPlaces = places;
       }),
 
     hydrateExplore: (places) =>
       set((s) => {
-        if (places.length > 0) s.explorePlaces = places;
+        s.explorePlaces = places;
       }),
   })),
 );

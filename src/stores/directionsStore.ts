@@ -85,7 +85,9 @@ export const useDirectionsStore = create<DirectionsState>()(
         const d = s.destination;
         if (!d) return;
         // The current origin in concrete form (resolve GPS to coords if needed).
-        const resolvedOrigin: DirectionsPoint =
+        // If neither an explicit origin nor a GPS fix is available, abort —
+        // we never fall back to a hardcoded city.
+        const resolvedOrigin: DirectionsPoint | null =
           o ??
           (userLoc
             ? {
@@ -95,13 +97,8 @@ export const useDirectionsStore = create<DirectionsState>()(
                 lat: userLoc.lat,
                 lng: userLoc.lng,
               }
-            : {
-                id: 'origin-fallback',
-                name: 'Hollywood',
-                emoji: '📍',
-                lat: 26.0118,
-                lng: -80.1495,
-              });
+            : null);
+        if (!resolvedOrigin) return;
         s.origin = { id: d.id, name: d.name, emoji: d.emoji, lat: d.lat, lng: d.lng };
         s.destination = resolvedOrigin;
         s.route = null;

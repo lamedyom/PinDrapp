@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Pin } from 'lucide-react';
 import { useFeedStore, type FeedTab } from '../../stores/feedStore';
 import { StoryRail } from './StoryRail';
 import { VideoCard } from './VideoCard';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
 import styles from './FeedScreen.module.css';
 
@@ -14,11 +16,11 @@ const TABS: { id: FeedTab; label: string }[] = [
 ];
 
 export function FeedScreen() {
+  const navigate = useNavigate();
   const posts = useFeedStore((s) => s.posts);
   const activeTab = useFeedStore((s) => s.activeTab);
   const setTab = useFeedStore((s) => s.setTab);
   const loading = useFeedStore((s) => s.loading);
-  const hydrated = useFeedStore((s) => s.hydrated);
 
   const visiblePosts = useMemo(() => {
     if (activeTab === 'nearby') return [...posts].sort((a, b) => a.distanceMiles - b.distanceMiles);
@@ -57,10 +59,11 @@ export function FeedScreen() {
       ) : visiblePosts.length === 0 ? (
         <EmptyState
           icon={<Pin size={36} />}
-          message={
-            hydrated
-              ? 'No updates yet. Be the first business to post.'
-              : 'Follow businesses to see their updates'
+          message="No updates yet. Be the first business to post, or follow businesses to see their updates here."
+          action={
+            <Button variant="primary" onClick={() => navigate('/map')}>
+              Explore Businesses
+            </Button>
           }
         />
       ) : (

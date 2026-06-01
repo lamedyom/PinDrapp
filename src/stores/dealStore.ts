@@ -65,110 +65,9 @@ interface DealState {
   hydrate: (deals: Deal[]) => void;
 }
 
-const now = Date.now();
-const hrs = (n: number) => new Date(now + n * 3600000);
-
-// Hollywood, FL anchored deals. IDs are kept in sync with the feed posts that
-// link to them (p1→d1, p2→d2, p3→d3, p4→d4).
-const mockDeals: Deal[] = [
-  {
-    id: 'd1',
-    businessId: 'b1',
-    businessName: "GG's Waterfront",
-    category: 'Food',
-    emoji: '🥩',
-    headline: 'Sunset Surf & Turf for Two',
-    description: 'Filet + lobster tail + dessert on the Broadwalk. Walk-ins welcome.',
-    originalPrice: 115,
-    dealPrice: 79,
-    discountPercent: null,
-    expiresAt: hrs(3.5),
-    distanceMiles: 1.7,
-    isFeatured: true,
-    isPro: true,
-    viewCount: 1284,
-    claimCount: 92,
-    stripeProductId: 'prod_1',
-    lat: 26.0177,
-    lng: -80.1148,
-  },
-  {
-    id: 'd2',
-    businessName: 'Green Garden Bowls',
-    category: 'Food',
-    emoji: '🥗',
-    headline: 'Any Grain Bowl 30% Off',
-    description: 'All grain bowls, today only until 8pm on Hollywood Blvd.',
-    originalPrice: null,
-    dealPrice: null,
-    discountPercent: 30,
-    expiresAt: hrs(4),
-    distanceMiles: 0.5,
-    isFeatured: false,
-    stripeProductId: 'prod_2',
-    lat: 26.0098,
-    lng: -80.1465,
-  },
-  {
-    id: 'd3',
-    businessId: 'b3',
-    businessName: 'Sage Bagel & Deli',
-    category: 'Bakery',
-    emoji: '🥐',
-    headline: 'Bagel Baker’s Dozen — Buy 12, Get 6 Free',
-    description: 'Fresh from the kettle. Friday morning pickup only.',
-    originalPrice: 27,
-    dealPrice: 18,
-    discountPercent: null,
-    expiresAt: hrs(1.5),
-    distanceMiles: 0.6,
-    isFeatured: false,
-    isPro: true,
-    viewCount: 642,
-    claimCount: 41,
-    stripeProductId: 'prod_3',
-    lat: 26.015,
-    lng: -80.152,
-  },
-  {
-    id: 'd4',
-    businessName: 'Hollywood Boulevard Boutique',
-    category: 'Shopping',
-    emoji: '👗',
-    headline: '20% Off All Summer Collection',
-    description: 'New stock just arrived. Today only in-store on Hollywood Blvd.',
-    originalPrice: null,
-    dealPrice: null,
-    discountPercent: 20,
-    expiresAt: hrs(6),
-    distanceMiles: 0.2,
-    isFeatured: false,
-    stripeProductId: 'prod_4',
-    lat: 26.0125,
-    lng: -80.1502,
-  },
-  {
-    id: 'd5',
-    businessName: 'The Juice Lab Broadwalk',
-    category: 'Coffee',
-    emoji: '🥤',
-    headline: 'Cold Press 2-for-1',
-    description: 'Any cold press juice, buy one get one free. Broadwalk only.',
-    originalPrice: 12,
-    dealPrice: 6,
-    discountPercent: null,
-    expiresAt: hrs(2),
-    distanceMiles: 1.7,
-    isFeatured: false,
-    stripeProductId: 'prod_5',
-    lat: 26.0173,
-    lng: -80.1153,
-  },
-];
-
 export const useDealStore = create<DealState>()(
   immer((set, get) => ({
-    deals: mockDeals,
+    deals: [],
     activeCategory: 'All',
     checkoutOpen: false,
     checkoutDealId: null,
@@ -229,7 +128,8 @@ export const useDealStore = create<DealState>()(
         s.checkoutStatus = 'success';
       });
       const deal = get().deals.find((d) => d.id === dealId);
-      if (deal) {
+      // Only auto-pin a deal to the map when it carries real coordinates.
+      if (deal && deal.lat != null && deal.lng != null) {
         useMapStore.getState().addSavedPlace({
           id: `deal_${deal.id}`,
           name: deal.businessName,
@@ -237,8 +137,8 @@ export const useDealStore = create<DealState>()(
           type: 'social',
           category: deal.category.toLowerCase(),
           hasDeal: true,
-          lat: deal.lat ?? 40.7505,
-          lng: deal.lng ?? -73.9845,
+          lat: deal.lat,
+          lng: deal.lng,
         });
       }
     },

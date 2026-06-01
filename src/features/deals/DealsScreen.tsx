@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { MapPin, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { useDealStore } from '../../stores/dealStore';
 import { DealCard } from './DealCard';
 import { CheckoutModal } from './CheckoutModal';
@@ -50,9 +50,6 @@ export function DealsScreen() {
           </h1>
           <p className={styles.sub}>Expires today · Near you</p>
         </div>
-        <div className={styles.location}>
-          <MapPin size={12} /> Hollywood, FL
-        </div>
       </header>
 
       <div className={`${styles.chips} no-scrollbar`}>
@@ -90,7 +87,7 @@ export function DealsScreen() {
         ) : visibleDeals.length === 0 ? (
           <EmptyState
             icon={<Zap size={36} />}
-            message="No active deals nearby right now"
+            message="No active deals right now — check back soon. Businesses post new deals daily."
           />
         ) : (
           visibleDeals.map((deal) => <DealCard key={deal.id} deal={deal} />)

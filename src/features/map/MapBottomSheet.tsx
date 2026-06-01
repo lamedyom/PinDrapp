@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { tapHaptic } from '../../lib/haptics';
-import { Search } from 'lucide-react';
+import { MapPin as MapPinIcon, Search } from 'lucide-react';
 import styles from './MapBottomSheet.module.css';
 
 const COLLAPSED = 110;
@@ -14,6 +14,7 @@ const DEFAULT = 240;
 const EXPANDED_RATIO = 0.6;
 
 export function MapBottomSheet() {
+  const navigate = useNavigate();
   const activeTab = useMapStore((s) => s.activeTab);
   const setActiveTab = useMapStore((s) => s.setActiveTab);
   const savedPlaces = useMapStore((s) => s.savedPlaces);
@@ -137,11 +138,26 @@ export function MapBottomSheet() {
         {activeTab === 'myPlaces' ? (
           filteredSaved.length === 0 && searchQuery ? (
             <EmptyState icon={<Search size={32} />} message={`No saved places match "${searchQuery}"`} />
+          ) : savedPlaces.length === 0 ? (
+            <EmptyState
+              icon={<MapPinIcon size={32} />}
+              message="You haven't saved any places yet. Tap Save to Map on any business to pin it here."
+            />
           ) : (
             <MyPlacesContent places={filteredSaved} onTap={flyToPlace} />
           )
         ) : filteredExplore.length === 0 && searchQuery ? (
           <EmptyState icon={<Search size={32} />} message={`No businesses match "${searchQuery}"`} />
+        ) : explorePlaces.length === 0 ? (
+          <EmptyState
+            icon={<MapPinIcon size={32} />}
+            message="No businesses in your area yet. Be the first to add yours."
+            action={
+              <Button variant="primary" onClick={() => navigate('/onboarding')}>
+                List My Business
+              </Button>
+            }
+          />
         ) : (
           <ExploreContent places={filteredExplore} onTap={flyToPlace} />
         )}

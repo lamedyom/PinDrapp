@@ -9,7 +9,7 @@ import {
   type LineLayerSpecification,
 } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Layers, Locate, LocateFixed, MapPin, Search } from 'lucide-react';
+import { Layers, Locate, LocateFixed, MapPin, Search, X } from 'lucide-react';
 import { MAPBOX_TOKEN, DEFAULT_CENTER, DEFAULT_ZOOM, isUsingDemoToken } from '../../lib/mapbox';
 import { useMapStore } from '../../stores/mapStore';
 import { useDirectionsStore, MAPBOX_STYLES } from '../../stores/directionsStore';
@@ -68,6 +68,7 @@ const ROUTE_LAYER: LineLayerSpecification = {
 export function PindrappMap() {
   const mapRef = useRef<MapRef | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [locBannerDismissed, setLocBannerDismissed] = useState(false);
   const savedPlaces = useMapStore((s) => s.savedPlaces);
   const explorePlaces = useMapStore((s) => s.explorePlaces);
   const searchedLocation = useMapStore((s) => s.searchedLocation);
@@ -423,6 +424,46 @@ export function PindrappMap() {
           >
             {userLocation ? <LocateFixed size={20} /> : <Locate size={20} />}
           </button>
+
+          {/* Location permission banner — shown when GPS errored (denied/
+             unsupported) and we never got a fix. Disappears once GPS resolves
+             or the user dismisses it. */}
+          {!userLocation && geo.error && !locBannerDismissed && (
+            <div className={styles.locBanner}>
+              <MapPin size={16} />
+              <span>Enable location to discover businesses near you</span>
+              <button
+                type="button"
+                className={styles.locBannerBtn}
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                        mapRef.current?.flyTo({
+                          center: [pos.coords.longitude, pos.coords.latitude],
+                          zoom: 14,
+                          duration: 1200,
+                        });
+                      },
+                      () => setLocBannerDismissed(false),
+                      { enableHighAccuracy: true, timeout: 8000 },
+                    );
+                  }
+                }}
+              >
+                Enable
+              </button>
+              <button
+                type="button"
+                className={styles.locBannerClose}
+                onClick={() => setLocBannerDismissed(true)}
+                aria-label="Dismiss"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           {isUsingDemoToken() && (
             <div className={styles.demoHint}>

@@ -23,10 +23,15 @@ import styles from './ProfileScreen.module.css';
  */
 export function ProfileScreen() {
   const profile = useAuthStore((s) => s.profile);
-  // Logged out (only reachable when Supabase is configured) → guest prompt.
-  if (isSupabaseConfigured() && !profile) return <GuestProfileScreen />;
-  if (profile?.userType === 'consumer') return <ConsumerProfileScreen />;
-  return <BusinessOwnerProfile />;
+  const business = useAuthStore((s) => s.business);
+
+  // Guest (signed out, or Supabase not configured) → sign-up prompt.
+  if (!profile) return <GuestProfileScreen />;
+  if (profile.userType === 'consumer') return <ConsumerProfileScreen />;
+  if (profile.userType === 'business') return <BusinessOwnerProfile />;
+  // Fallback while userType is null — never show business mock data to a
+  // user whose role we don't yet know.
+  return business ? <BusinessOwnerProfile /> : <GuestProfileScreen />;
 }
 
 type ProfileTab = 'feed' | 'deals' | 'catalog';

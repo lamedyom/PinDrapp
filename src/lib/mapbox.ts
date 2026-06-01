@@ -26,10 +26,11 @@ export const isUsingDemoToken = (): boolean => usingDemo;
 // Always true now — the map always renders. Kept for back-compat with callers.
 export const hasMapboxToken = (): boolean => true;
 
-// Downtown Hollywood, FL — Young Circle area. The map opens here when
-// geolocation hasn't been granted yet.
-export const DEFAULT_CENTER = { longitude: -80.1495, latitude: 26.0118 };
-export const DEFAULT_ZOOM = 14;
+// Neutral world view used only as the initial frame before geolocation
+// resolves. We never anchor on a city — once GPS arrives the map flies to
+// the user; if GPS is denied the user sees the location-permission banner.
+export const DEFAULT_CENTER = { longitude: -98.5795, latitude: 39.8283 };
+export const DEFAULT_ZOOM = 3;
 
 // Set the global token *before* any map is initialized. react-map-gl forwards
 // the per-instance token to its Map, but mapbox-gl-geocoder and ad-hoc API

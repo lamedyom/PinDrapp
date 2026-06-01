@@ -38,49 +38,10 @@ interface CatalogState {
   toggleAvailability: (id: string) => void;
 }
 
-// Mock catalog so the offline demo profile shows a populated menu.
-const mockCatalog: CatalogItem[] = [
-  {
-    id: 'c1',
-    name: 'Margherita Pizza',
-    description: 'San Marzano tomato, fior di latte, basil, stone oven.',
-    category: 'Pizzas',
-    photoUrl: null,
-    regularPrice: 16,
-    salePrice: null,
-    tags: ['⭐ Popular'],
-    isAvailable: true,
-    sortOrder: 0,
-  },
-  {
-    id: 'c2',
-    name: 'Garden Grain Bowl',
-    description: 'Quinoa, roasted veg, tahini drizzle.',
-    category: 'Bowls',
-    photoUrl: null,
-    regularPrice: 14,
-    salePrice: 11,
-    tags: ['🌱 Vegan', '🍋 Gluten Free'],
-    isAvailable: true,
-    sortOrder: 1,
-  },
-  {
-    id: 'c3',
-    name: 'Cold Brew',
-    description: 'Slow-steeped 18 hours, served over ice.',
-    category: 'Drinks',
-    photoUrl: null,
-    regularPrice: 5,
-    salePrice: null,
-    tags: ['🆕 New'],
-    isAvailable: false,
-    sortOrder: 2,
-  },
-];
 
 export const useCatalogStore = create<CatalogState>()(
   immer((set) => ({
-    items: mockCatalog,
+    items: [],
     loading: false,
     hydrated: false,
 

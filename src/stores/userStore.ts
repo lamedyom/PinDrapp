@@ -41,7 +41,7 @@ export interface BusinessProfile {
 }
 
 interface UserState {
-  profile: BusinessProfile;
+  profile: BusinessProfile | null;
   isEditModalOpen: boolean;
   isMenuModalOpen: boolean;
 
@@ -58,102 +58,10 @@ interface UserState {
   addDealTemplate: (tpl: DealTemplate) => void;
 }
 
-const mockProfile: BusinessProfile = {
-  id: 'biz1',
-  name: "GG's Waterfront",
-  category: 'Steakhouse',
-  coverEmoji: '🥩',
-  bio: "Hollywood's waterfront steakhouse. Open Sun–Thu 5pm, Fri & Sat 12pm–11pm. Reservations recommended.",
-  imageUrl: null,
-  website: 'ggswaterfront.com',
-  instagram: '@ggswaterfront',
-  phone: '(954) 555-0123',
-  address: '301 N Ocean Dr, Hollywood Beach Broadwalk, FL 33019',
-  followerCount: 847,
-  postCount: 34,
-  mapSaveCount: 412,
-  dealClaimCount: 89,
-  menuItems: [
-    {
-      id: 'm1',
-      name: 'Hand-Cut Ribeye',
-      description: '12oz dry-aged, seasonal veg',
-      price: 44,
-      category: 'Mains',
-      emoji: '🥩',
-      isAvailable: true,
-    },
-    {
-      id: 'm2',
-      name: '3-Course Dinner for Two',
-      description: 'Starter, main, dessert. Ask about tonight.',
-      price: 79,
-      category: 'Specials',
-      emoji: '🍽️',
-      isAvailable: true,
-    },
-    {
-      id: 'm3',
-      name: 'Wagyu Carpaccio',
-      description: 'Paper thin, truffle oil, capers, arugula',
-      price: 28,
-      category: 'Appetizers',
-      emoji: '🥗',
-      isAvailable: true,
-    },
-    {
-      id: 'm4',
-      name: 'Dark Chocolate Lava Cake',
-      description: 'Warm, vanilla bean ice cream',
-      price: 16,
-      category: 'Desserts',
-      emoji: '🍫',
-      isAvailable: true,
-    },
-    {
-      id: 'm5',
-      name: 'House Wine Carafe',
-      description: 'Red or white, 500ml',
-      price: 34,
-      category: 'Drinks',
-      emoji: '🍷',
-      isAvailable: false,
-    },
-  ],
-  dealTemplates: [
-    {
-      id: 'dt1',
-      name: 'Early Bird Special',
-      headline: '3-Course for Two — Limited Tables',
-      discountType: 'fixed',
-      discountValue: 36,
-      defaultDuration: 4,
-      emoji: '🌅',
-    },
-    {
-      id: 'dt2',
-      name: 'End of Day Clearance',
-      headline: 'Selected items — today only',
-      discountType: 'percent',
-      discountValue: 25,
-      defaultDuration: 2,
-      emoji: '🌙',
-    },
-    {
-      id: 'dt3',
-      name: 'Weekend Special',
-      headline: 'Exclusive weekend pricing',
-      discountType: 'percent',
-      discountValue: 15,
-      defaultDuration: 8,
-      emoji: '🎉',
-    },
-  ],
-};
 
 export const useUserStore = create<UserState>()(
   immer((set) => ({
-    profile: mockProfile,
+    profile: null,
     isEditModalOpen: false,
     isMenuModalOpen: false,
 
@@ -164,7 +72,7 @@ export const useUserStore = create<UserState>()(
 
     updateProfile: (partial) =>
       set((s) => {
-        Object.assign(s.profile, partial);
+        if (s.profile) Object.assign(s.profile, partial);
       }),
 
     openEditModal: () =>
@@ -187,29 +95,29 @@ export const useUserStore = create<UserState>()(
 
     addMenuItem: (item) =>
       set((s) => {
-        s.profile.menuItems.push(item);
+        s.profile?.menuItems.push(item);
       }),
 
     updateMenuItem: (id, partial) =>
       set((s) => {
-        const item = s.profile.menuItems.find((m) => m.id === id);
+        const item = s.profile?.menuItems.find((m) => m.id === id);
         if (item) Object.assign(item, partial);
       }),
 
     deleteMenuItem: (id) =>
       set((s) => {
-        s.profile.menuItems = s.profile.menuItems.filter((m) => m.id !== id);
+        if (s.profile) s.profile.menuItems = s.profile.menuItems.filter((m) => m.id !== id);
       }),
 
     toggleMenuItemAvailability: (id) =>
       set((s) => {
-        const item = s.profile.menuItems.find((m) => m.id === id);
+        const item = s.profile?.menuItems.find((m) => m.id === id);
         if (item) item.isAvailable = !item.isAvailable;
       }),
 
     addDealTemplate: (tpl) =>
       set((s) => {
-        s.profile.dealTemplates.push(tpl);
+        s.profile?.dealTemplates.push(tpl);
       }),
   })),
 );

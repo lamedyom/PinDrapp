@@ -80,7 +80,7 @@ export function PostScreen() {
     discountPercent: '',
     duration: 4,
   });
-  const [location_, setLocation] = useState('Downtown Hollywood, FL');
+  const [location_, setLocation] = useState('Use my current location');
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
@@ -159,10 +159,10 @@ export function PostScreen() {
     input.click();
   };
 
-  const postCoords = () =>
-    locationCoords ??
-    (userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null) ??
-    { lat: 26.0118, lng: -80.1495 };
+  // The post's location: explicit picker, then live GPS, otherwise unknown —
+  // never a hardcoded city fallback.
+  const postCoords = (): { lat: number; lng: number } | null =>
+    locationCoords ?? (userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null);
 
   // ── FLOW A: video update → posts(post_type='feed')
   const submitUpdate = async () => {
@@ -213,8 +213,8 @@ export function PostScreen() {
         createdAt: new Date(),
         videoUrl,
         thumbnailGradient: DEFAULT_GRADIENT,
-        lat: coords.lat,
-        lng: coords.lng,
+        lat: coords?.lat,
+        lng: coords?.lng,
       });
 
       setSuccess(true);
@@ -308,8 +308,8 @@ export function PostScreen() {
         mediaUrl,
         mediaType,
         dealCategory: cleanCategory,
-        lat: coords.lat,
-        lng: coords.lng,
+        lat: coords?.lat,
+        lng: coords?.lng,
       };
       addDeal(newDeal);
 
@@ -378,8 +378,8 @@ export function PostScreen() {
         mediaUrl: draft.imageUrl,
         mediaType: 'image',
         dealCategory: 'Flash Sale',
-        lat: coords.lat,
-        lng: coords.lng,
+        lat: coords?.lat,
+        lng: coords?.lng,
       });
       setSuccess(true);
       window.setTimeout(() => navigate('/deals'), 1800);
