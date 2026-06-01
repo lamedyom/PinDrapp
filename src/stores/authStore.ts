@@ -164,18 +164,31 @@ export const useAuthStore = create<AuthState>()(
       const TIMED_OUT = Symbol('timeout');
       const loaded = await withTimeout(
         (async () => {
+          // Chain: auth.users.id → public.users.auth_id → public.users.id → businesses.user_id
           const { data } = await sb.auth.getSession();
           const session = data.session;
           // eslint-disable-next-line no-console
-          console.log('[pindrapp] session result:', session ? 'signed in' : 'no session');
+          console.log('[pindrapp] auth chain · step 0 — session:', {
+            signed_in: !!session,
+            'auth.users.id': session?.user.id,
+            email: session?.user.email,
+          });
           let profile: UserProfile | null = null;
           let business: BusinessProfile | null = null;
           if (session) {
             profile = await loadProfile(session.user.id);
             // eslint-disable-next-line no-console
-            console.log('[pindrapp] profile loaded:', profile?.userType ?? 'none');
+            console.log('[pindrapp] auth chain · step 1 — users WHERE auth_id =', session.user.id, '→', {
+              'public.users.id': profile?.id,
+              user_type: profile?.userType,
+            });
             if (profile?.userType === 'business') {
               business = await loadBusiness(profile.id);
+              // eslint-disable-next-line no-console
+              console.log('[pindrapp] auth chain · step 2 — businesses WHERE user_id =', profile.id, '→', {
+                'businesses.id': business?.id,
+                name: business?.name,
+              });
             }
           }
           return { session, profile, business };
@@ -460,6 +473,14 @@ function rowToBusiness(r: BusinessRow): BusinessProfile {
   };
 }
 
+/**
+ * Step 1 of the business lookup chain.
+ *
+ *   auth.users.id  →  public.users WHERE auth_id = <that id>  →  public.users.id
+ *
+ * Never use auth.users.id as a foreign key directly — businesses.user_id
+ * references public.users.id, not auth.users.id.
+ */
 async function loadProfile(authId: string): Promise<UserProfile | null> {
   if (!supabase) return null;
   const { data } = await supabase
@@ -470,6 +491,14 @@ async function loadProfile(authId: string): Promise<UserProfile | null> {
   return data ? rowToProfile(data as UserRow) : null;
 }
 
+/**
+ * Step 2 of the business lookup chain.
+ *
+ *   public.users.id  →  public.businesses WHERE user_id = <that id>
+ *
+ * Caller MUST pass the public.users.id (the value returned by loadProfile),
+ * not the auth.users.id.
+ */
 async function loadBusiness(userId: string): Promise<BusinessProfile | null> {
   if (!supabase) return null;
   const { data } = await supabase
