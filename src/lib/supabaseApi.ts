@@ -506,6 +506,8 @@ export interface BusinessProfileBundle {
   isFollowing: boolean;
   postCount: number;
   mapSaveCount: number;
+  /** Total deal redemptions for this business (count of deal_claims rows). */
+  dealClaimCount: number;
 }
 
 export async function fetchBusinessProfile(
@@ -515,7 +517,7 @@ export async function fetchBusinessProfile(
 ): Promise<BusinessProfileBundle | null> {
   if (!supabase) return null;
   const sb = supabase;
-  const [bizRes, postsRes, dealsRes, catalogRes, followerRes, followingRes, savesRes] =
+  const [bizRes, postsRes, dealsRes, catalogRes, followerRes, followingRes, savesRes, claimsRes] =
     await Promise.all([
       sb.from('businesses').select('*').eq('id', businessId).maybeSingle(),
       sb
@@ -545,6 +547,10 @@ export async function fetchBusinessProfile(
         : Promise.resolve({ data: null }),
       sb
         .from('saved_places')
+        .select('id', { count: 'exact', head: true })
+        .eq('business_id', businessId),
+      sb
+        .from('deal_claims')
         .select('id', { count: 'exact', head: true })
         .eq('business_id', businessId),
     ]);
@@ -626,6 +632,7 @@ export async function fetchBusinessProfile(
     isFollowing: !!followingRes.data,
     postCount: posts.length,
     mapSaveCount: savesRes.count ?? 0,
+    dealClaimCount: claimsRes.count ?? 0,
   };
 }
 
@@ -666,6 +673,59 @@ export async function recordDealClaim(input: {
     amount_paid: input.amountPaid,
   });
   if (error) throw error;
+}
+
+export interface ClaimedDealRecord {
+  id: string;
+  dealId: string;
+  businessId: string;
+  businessName: string;
+  headline: string;
+  amountPaid: number;
+  claimedAt: Date;
+  expiresAt: Date | null;
+}
+
+/** Every deal the consumer has redeemed, newest first — drives Deal History. */
+export async function fetchUserClaimedDeals(userId: string): Promise<ClaimedDealRecord[]> {
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from('deal_claims')
+    .select(
+      'id, deal_id, business_id, amount_paid, claimed_at, deals(headline, expires_at), businesses(name)',
+    )
+    .eq('user_id', userId)
+    .order('claimed_at', { ascending: false });
+  if (!data) return [];
+  type Row = {
+    id: string;
+    deal_id: string;
+    business_id: string;
+    amount_paid: number | null;
+    claimed_at: string;
+    deals: { headline: string; expires_at: string | null } | { headline: string; expires_at: string | null }[] | null;
+    businesses: { name: string } | { name: string }[] | null;
+  };
+  return (data as Row[]).map((r) => {
+    const deal = Array.isArray(r.deals) ? r.deals[0] : r.deals;
+    const biz = Array.isArray(r.businesses) ? r.businesses[0] : r.businesses;
+    return {
+      id: r.id,
+      dealId: r.deal_id,
+      businessId: r.business_id,
+      businessName: biz?.name ?? 'Business',
+      headline: deal?.headline ?? 'Deal',
+      amountPaid: r.amount_paid ?? 0,
+      claimedAt: new Date(r.claimed_at),
+      expiresAt: deal?.expires_at ? new Date(deal.expires_at) : null,
+    };
+  });
+}
+
+/** Mark a deal as expired in Supabase (called when its countdown completes). */
+export async function markDealExpired(dealId: string): Promise<void> {
+  if (!supabase) return;
+  await supabase.from('deals').update({ is_active: false }).eq('id', dealId);
 }
 
 export interface FollowedBusiness {

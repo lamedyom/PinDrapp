@@ -7,22 +7,15 @@ import { isSupabaseConfigured } from '../../lib/supabase';
 import {
   fetchFollowing,
   fetchSavedPlaces,
+  fetchUserClaimedDeals,
   uploadImage,
+  type ClaimedDealRecord,
   type FollowedBusiness,
 } from '../../lib/supabaseApi';
 import { showToast } from '../../stores/toastStore';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import styles from './ConsumerProfileScreen.module.css';
-
-interface ClaimedDeal {
-  id: string;
-  businessName: string;
-  headline: string;
-  date: Date;
-  amountSaved: number;
-}
-
 
 export function ConsumerProfileScreen() {
   const navigate = useNavigate();
@@ -31,7 +24,7 @@ export function ConsumerProfileScreen() {
 
   const [saved, setSaved] = useState<SavedPlace[]>([]);
   const [following, setFollowing] = useState<FollowedBusiness[]>([]);
-  const [claimed, setClaimed] = useState<ClaimedDeal[]>([]);
+  const [claimed, setClaimed] = useState<ClaimedDealRecord[]>([]);
   const [editOpen, setEditOpen] = useState(false);
 
   const name = profile?.name?.trim() || 'Your Profile';
@@ -54,14 +47,15 @@ export function ConsumerProfileScreen() {
         return;
       }
       // Real Supabase reads only — no mock fallback. Empty results show empty states.
-      const [savedRes, followRes] = await Promise.all([
+      const [savedRes, followRes, claimedRes] = await Promise.all([
         fetchSavedPlaces(profile.id),
         fetchFollowing(profile.id),
+        fetchUserClaimedDeals(profile.id),
       ]);
       if (cancelled) return;
       setSaved(savedRes.filter((p) => p.businessId));
       setFollowing(followRes);
-      setClaimed([]); // claim history will hydrate once a claims table exists
+      setClaimed(claimedRes);
     };
     void load();
     return () => {
@@ -184,10 +178,13 @@ export function ConsumerProfileScreen() {
                 <div className={styles.claimInfo}>
                   <div className={styles.claimHeadline}>{d.headline}</div>
                   <div className={styles.claimMeta}>
-                    {d.businessName} · {d.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {d.businessName} ·{' '}
+                    {d.claimedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </div>
                 </div>
-                <div className={styles.claimSaved}>Saved ${d.amountSaved}</div>
+                {d.amountPaid > 0 && (
+                  <div className={styles.claimSaved}>${d.amountPaid.toFixed(2)}</div>
+                )}
               </div>
             ))}
           </div>

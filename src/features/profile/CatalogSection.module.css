@@ -144,6 +144,29 @@
   color: var(--text-secondary);
 }
 
+/* Colored tag variants — keyed off the prefix emoji of the tag string. */
+.tagVegan {
+  background: rgba(0, 217, 126, 0.15);
+  color: var(--green);
+  border-color: transparent;
+}
+.tagSpicy {
+  background: rgba(255, 58, 58, 0.15);
+  color: var(--red);
+  border-color: transparent;
+}
+.tagPopular,
+.tagBestseller {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border-color: transparent;
+}
+.tagNew {
+  background: rgba(26, 58, 255, 0.15);
+  color: var(--blue);
+  border-color: transparent;
+}
+
 .priceCol {
   flex-shrink: 0;
   display: flex;

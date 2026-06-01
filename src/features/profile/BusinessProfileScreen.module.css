@@ -295,6 +295,34 @@
   color: var(--text-muted);
 }
 
+.emptyTabState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 24px 24px;
+  text-align: center;
+}
+
+.emptyTabIcon {
+  color: var(--text-muted);
+}
+
+.emptyTabTitle {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.emptyTabBody {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 280px;
+  margin-bottom: 4px;
+}
+
 /* ── Updates grid ───────────────────────────────────────────────────────── */
 .grid {
   display: grid;

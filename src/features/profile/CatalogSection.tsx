@@ -122,7 +122,7 @@ export function CatalogSection({ isOwner }: CatalogSectionProps) {
                     {item.tags.length > 0 && (
                       <div className={styles.tagRow}>
                         {item.tags.map((t) => (
-                          <span key={t} className={styles.tag}>
+                          <span key={t} className={`${styles.tag} ${tagToneClass(t, styles)}`}>
                             {t}
                           </span>
                         ))}
@@ -182,4 +182,17 @@ export function CatalogSection({ isOwner }: CatalogSectionProps) {
       />
     </section>
   );
+}
+
+/** Map a catalog tag to its color class based on the leading emoji. */
+export function tagToneClass(
+  tag: string,
+  s: Record<string, string>,
+): string {
+  if (tag.startsWith('🌱')) return s.tagVegan ?? '';
+  if (tag.startsWith('🌶️') || tag.startsWith('🔥')) return s.tagSpicy ?? '';
+  if (tag.startsWith('⭐')) return s.tagPopular ?? '';
+  if (tag.startsWith('💯')) return s.tagBestseller ?? '';
+  if (tag.startsWith('🆕')) return s.tagNew ?? '';
+  return '';
 }

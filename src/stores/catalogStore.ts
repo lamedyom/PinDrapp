@@ -24,6 +24,7 @@ export const CATALOG_TAGS = [
   '🥜 Contains Nuts',
   '🍋 Gluten Free',
   '🔥 Hot',
+  '💯 Bestseller',
 ] as const;
 
 interface CatalogState {
