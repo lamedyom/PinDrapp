@@ -104,7 +104,7 @@ export function CatalogSection({ isOwner }: CatalogSectionProps) {
                 >
                   <div className={styles.thumb}>
                     {item.photoUrl ? (
-                      <img src={item.photoUrl} alt="" className={styles.thumbImg} />
+                      <img src={item.photoUrl} alt="" className={styles.thumbImg} loading="lazy" />
                     ) : (
                       <span className={styles.thumbPlaceholder}>🍽️</span>
                     )}

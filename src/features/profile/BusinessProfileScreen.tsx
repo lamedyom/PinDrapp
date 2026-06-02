@@ -303,7 +303,7 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
       <div className={styles.avatarRow}>
         <div className={styles.avatarWrap}>
           {business.avatarUrl ? (
-            <img src={business.avatarUrl} alt="" className={styles.avatarImg} />
+            <img src={business.avatarUrl} alt="" className={styles.avatarImg} loading="lazy" />
           ) : (
             <span className={styles.avatarEmoji}>{emojiFor(business.category)}</span>
           )}
@@ -628,7 +628,7 @@ function CatalogTab({
                 >
                   <div className={catalogStyles.thumb}>
                     {item.photoUrl ? (
-                      <img src={item.photoUrl} alt="" className={catalogStyles.thumbImg} />
+                      <img src={item.photoUrl} alt="" className={catalogStyles.thumbImg} loading="lazy" />
                     ) : (
                       <span className={catalogStyles.thumbPlaceholder}>🍽️</span>
                     )}

@@ -86,7 +86,7 @@ export function DealCard({ deal, featuredLabel }: DealCardProps) {
             playsInline
           />
         ) : deal.mediaUrl ? (
-          <img className={styles.mediaEl} src={deal.mediaUrl} alt={deal.headline} />
+          <img className={styles.mediaEl} src={deal.mediaUrl} alt={deal.headline} loading="lazy" />
         ) : (
           <span className={styles.emoji}>{deal.emoji}</span>
         )}

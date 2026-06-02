@@ -77,7 +77,7 @@ export function CatalogItemForm({
 
         <button type="button" className={styles.photoPicker} onClick={handlePhoto}>
           {form.photoUrl ? (
-            <img src={form.photoUrl} alt="" className={styles.photoPreview} />
+            <img src={form.photoUrl} alt="" className={styles.photoPreview} loading="lazy" />
           ) : (
             <span className={styles.photoEmpty}>
               <Camera size={20} /> Add photo

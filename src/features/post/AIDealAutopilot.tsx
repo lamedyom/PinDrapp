@@ -150,7 +150,7 @@ export function AIDealAutopilot({
 
       {/* Generated image + regenerate */}
       <div className={styles.imageWrap}>
-        <img src={draft.imageUrl} alt="AI-generated deal" className={styles.image} />
+        <img src={draft.imageUrl} alt="AI-generated deal" className={styles.image} loading="lazy" />
         <button
           type="button"
           className={styles.regenBtn}

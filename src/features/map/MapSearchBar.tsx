@@ -7,7 +7,7 @@ import { searchBusinesses, type BusinessSearchResult } from '../../lib/supabaseA
 import { tapHaptic } from '../../lib/haptics';
 import styles from './MapSearchBar.module.css';
 
-const DEBOUNCE_MS = 220;
+const DEBOUNCE_MS = 250;
 
 export function MapSearchBar() {
   const userLocation = useMapStore((s) => s.userLocation);
@@ -189,7 +189,7 @@ export function MapSearchBar() {
 
           {bizResults.length > 0 && (
             <>
-              <div className={styles.sectionHeader}>📍 Businesses</div>
+              <div className={styles.sectionHeader}>📍 On Pindrapp</div>
               {bizResults.map((b) => (
                 <button
                   key={`biz_${b.id}`}
@@ -200,7 +200,7 @@ export function MapSearchBar() {
                 >
                   <span className={`${styles.bizAvatar} ${b.isPro ? styles.bizAvatarPro : ''}`}>
                     {b.avatarUrl ? (
-                      <img src={b.avatarUrl} alt="" className={styles.bizAvatarImg} />
+                      <img src={b.avatarUrl} alt="" className={styles.bizAvatarImg} loading="lazy" />
                     ) : (
                       b.emoji
                     )}

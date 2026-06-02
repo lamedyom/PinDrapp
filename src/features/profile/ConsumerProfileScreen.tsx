@@ -73,7 +73,7 @@ export function ConsumerProfileScreen() {
       <div className={styles.header}>
         <div className={styles.avatar}>
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className={styles.avatarImg} />
+            <img src={avatarUrl} alt="" className={styles.avatarImg} loading="lazy" />
           ) : (
             <span className={styles.initials}>{initialsOf(name)}</span>
           )}
@@ -154,7 +154,7 @@ export function ConsumerProfileScreen() {
               >
                 <div className={`${styles.followAvatar} ${b.isPro ? styles.followAvatarPro : ''}`}>
                   {b.avatarUrl ? (
-                    <img src={b.avatarUrl} alt="" className={styles.followAvatarImg} />
+                    <img src={b.avatarUrl} alt="" className={styles.followAvatarImg} loading="lazy" />
                   ) : (
                     <span>{b.emoji}</span>
                   )}
@@ -245,7 +245,7 @@ function ConsumerEditModal({ open, onClose }: { open: boolean; onClose: () => vo
         <h3 className={styles.editTitle}>Edit profile</h3>
         <button type="button" className={styles.editPhoto} onClick={pickPhoto}>
           {photo ? (
-            <img src={photo} alt="" className={styles.editPhotoImg} />
+            <img src={photo} alt="" className={styles.editPhotoImg} loading="lazy" />
           ) : (
             <span className={styles.editPhotoEmpty}>
               <Camera size={20} /> Add photo

@@ -4,6 +4,7 @@ import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Camera, MapPin } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { uploadAvatar } from '../../lib/supabaseApi';
 import { tapHaptic } from '../../lib/haptics';
 import styles from './ConsumerOnboarding.module.css';
 
@@ -17,29 +18,41 @@ const INTERESTS = [
   { id: 'fitness', label: 'Fitness', emoji: '🏋️' },
   { id: 'books', label: 'Books', emoji: '📚' },
   { id: 'electronics', label: 'Electronics', emoji: '📱' },
-  { id: 'music', label: 'Music', emoji: '🎵' },
   { id: 'wine', label: 'Wine', emoji: '🍷' },
   { id: 'events', label: 'Events', emoji: '🎉' },
+  { id: 'services', label: 'Services', emoji: '🔧' },
+  { id: 'health', label: 'Health', emoji: '🏥' },
+  { id: 'music', label: 'Music', emoji: '🎵' },
+  { id: 'japanese', label: 'Japanese', emoji: '🍣' },
 ];
 
 export function ConsumerOnboarding() {
   const navigate = useNavigate();
   const profile = useAuthStore((s) => s.profile);
   const markOnboarded = useAuthStore((s) => s.markConsumerOnboarded);
+  const updateConsumer = useAuthStore((s) => s.updateConsumerProfile);
 
   const [step, setStep] = useState(1);
   const [firstName, setFirstName] = useState(profile?.name?.split(' ')[0] ?? '');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatarUrl ?? null);
   const [interests, setInterests] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  const [savingStep, setSavingStep] = useState(false);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'granted' | 'denied'>('idle');
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: { 'image/*': [] },
     multiple: false,
-    onDrop: (files) => {
+    onDrop: async (files) => {
       const f = files[0];
-      if (f) setAvatarUrl(URL.createObjectURL(f));
+      if (!f) return;
+      setAvatarUrl(URL.createObjectURL(f));
+      try {
+        const remote = await uploadAvatar(f);
+        if (remote) setAvatarUrl(remote);
+      } catch {
+        // keep the local preview if upload fails
+      }
     },
   });
 
@@ -56,11 +69,26 @@ export function ConsumerOnboarding() {
     );
   };
 
-  const totalSteps = 3;
+  const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
-  const next = () => {
+  // Per-step persistence so a half-finished signup keeps what was typed.
+  const persistCurrentStep = async (): Promise<void> => {
+    setSavingStep(true);
+    try {
+      if (step === 1 && firstName.trim().length >= 2) {
+        await updateConsumer({ name: firstName.trim() });
+      } else if (step === 2 && avatarUrl) {
+        await updateConsumer({ avatarUrl });
+      }
+    } finally {
+      setSavingStep(false);
+    }
+  };
+
+  const next = async () => {
     tapHaptic();
+    await persistCurrentStep();
     setStep((s) => Math.min(totalSteps, s + 1));
   };
   const back = () => setStep((s) => Math.max(1, s - 1));
@@ -71,6 +99,9 @@ export function ConsumerOnboarding() {
     setSubmitting(false);
     navigate('/feed');
   };
+
+  const continueDisabled =
+    (step === 1 && firstName.trim().length < 2) || savingStep || submitting;
 
   return (
     <div className={styles.screen}>
@@ -103,32 +134,8 @@ export function ConsumerOnboarding() {
         >
           {step === 1 && (
             <>
-              <h1 className={styles.title}>What's your name?</h1>
+              <h1 className={styles.title}>What should we call you?</h1>
               <p className={styles.sub}>This is how you'll appear on Pindrapp.</p>
-
-              <div className={styles.avatarBlock}>
-                <div {...getRootProps({ className: styles.avatarDrop })}>
-                  <input {...getInputProps()} />
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className={styles.avatarImg} />
-                  ) : (
-                    <div className={styles.avatarPlaceholder}>
-                      <Camera size={22} />
-                      <span>Add a profile photo</span>
-                    </div>
-                  )}
-                </div>
-                <p className={styles.photoHint}>
-                  Help others recognize you in the community
-                </p>
-                <button
-                  type="button"
-                  className={styles.linkBtn}
-                  onClick={() => setAvatarUrl(null)}
-                >
-                  Skip photo
-                </button>
-              </div>
 
               <label className={styles.fieldLabel}>
                 First name
@@ -147,9 +154,41 @@ export function ConsumerOnboarding() {
 
           {step === 2 && (
             <>
-              <h1 className={styles.title}>Location helps a lot</h1>
+              <h1 className={styles.title}>Add a photo</h1>
               <p className={styles.sub}>
-                We use it to surface businesses near you. We never sell your location.
+                Optional — helps others recognize you in the community.
+              </p>
+
+              <div className={styles.avatarBlock}>
+                <div {...getRootProps({ className: styles.avatarDrop })}>
+                  <input {...getInputProps()} />
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className={styles.avatarImg} loading="lazy" />
+                  ) : (
+                    <div className={styles.avatarPlaceholder}>
+                      <Camera size={22} />
+                      <span>Tap to upload</span>
+                    </div>
+                  )}
+                </div>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    className={styles.linkBtn}
+                    onClick={() => setAvatarUrl(null)}
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <h1 className={styles.title}>Find businesses near you</h1>
+              <p className={styles.sub}>
+                Allow location to discover what's happening in your neighborhood right now.
               </p>
 
               <div className={styles.locGraphic}>
@@ -170,18 +209,18 @@ export function ConsumerOnboarding() {
                   ? 'Location enabled ✓'
                   : locationStatus === 'denied'
                     ? 'Tap to try again'
-                    : 'Allow Location'}
+                    : 'Allow Location Access'}
               </button>
-              <button type="button" className={styles.linkBtn} onClick={next}>
+              <button type="button" className={styles.linkBtn} onClick={() => void next()}>
                 Maybe later
               </button>
             </>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <>
               <h1 className={styles.title}>What are you into?</h1>
-              <p className={styles.sub}>We'll show you these first. Pick a few.</p>
+              <p className={styles.sub}>We'll show you relevant businesses first.</p>
 
               <div className={styles.interestGrid}>
                 {INTERESTS.map((i) => (
@@ -192,10 +231,10 @@ export function ConsumerOnboarding() {
                     onClick={() => {
                       tapHaptic();
                       setInterests((set) => {
-                        const next = new Set(set);
-                        if (next.has(i.id)) next.delete(i.id);
-                        else next.add(i.id);
-                        return next;
+                        const updated = new Set(set);
+                        if (updated.has(i.id)) updated.delete(i.id);
+                        else updated.add(i.id);
+                        return updated;
                       });
                     }}
                   >
@@ -214,19 +253,19 @@ export function ConsumerOnboarding() {
           <button
             type="button"
             className={styles.primaryBtn}
-            disabled={step === 1 ? firstName.trim().length < 2 : false}
-            onClick={next}
+            disabled={continueDisabled}
+            onClick={() => void next()}
           >
-            Continue <ArrowRight size={16} />
+            {savingStep ? 'Saving…' : 'Continue'} <ArrowRight size={16} />
           </button>
         ) : (
           <button
             type="button"
             className={styles.primaryBtn}
             disabled={submitting}
-            onClick={finish}
+            onClick={() => void finish()}
           >
-            {submitting ? 'Setting up…' : "Let's go"} <ArrowRight size={16} />
+            {submitting ? 'Setting up…' : "Let's go!"} <ArrowRight size={16} />
           </button>
         )}
       </div>

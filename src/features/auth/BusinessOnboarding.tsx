@@ -19,31 +19,51 @@ const CATEGORIES = [
   { id: 'fitness', label: 'Fitness', emoji: '🏋️' },
   { id: 'books', label: 'Books', emoji: '📚' },
   { id: 'electronics', label: 'Electronics', emoji: '📱' },
-  { id: 'music', label: 'Music', emoji: '🎵' },
   { id: 'wine', label: 'Wine', emoji: '🍷' },
   { id: 'market', label: 'Market', emoji: '🛒' },
-  { id: 'health', label: 'Health', emoji: '🏥' },
   { id: 'events', label: 'Events', emoji: '🎉' },
+  { id: 'services', label: 'Services', emoji: '🔧' },
+  { id: 'health', label: 'Health', emoji: '🏥' },
+  { id: 'music', label: 'Music', emoji: '🎵' },
+  { id: 'japanese', label: 'Japanese', emoji: '🍣' },
   { id: 'other', label: 'Other', emoji: '🏪' },
 ];
 
 export function BusinessOnboarding() {
   const navigate = useNavigate();
   const profile = useAuthStore((s) => s.profile);
-  const saveBusiness = useAuthStore((s) => s.saveBusinessProfile);
+  const business = useAuthStore((s) => s.business);
+  const upsertBusiness = useAuthStore((s) => s.upsertBusinessFields);
+  const markOnboarded = useAuthStore((s) => s.markOnboarded);
 
+  // Resume from whatever's already saved — if the user came back after a
+  // half-finished onboarding, prefill from the business row that already exists.
   const [step, setStep] = useState(1);
-  const [name, setName] = useState(profile?.name ?? '');
-  const [category, setCategory] = useState<string>('food');
+  const [name, setName] = useState(business?.name ?? profile?.name ?? '');
+  const [category, setCategory] = useState<string>(business?.category ?? 'food');
   const [addressQuery, setAddressQuery] = useState('');
   const [addressResults, setAddressResults] = useState<GeocodingResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [picked, setPicked] = useState<GeocodingResult | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [bio, setBio] = useState('');
-  const [website, setWebsite] = useState('');
-  const [instagram, setInstagram] = useState('');
+  const [picked, setPicked] = useState<GeocodingResult | null>(
+    business?.address && business.lat != null && business.lng != null
+      ? {
+          id: 'existing',
+          name: business.name,
+          emoji: '📍',
+          placeName: business.address,
+          types: ['address'],
+          lat: business.lat,
+          lng: business.lng,
+        }
+      : null,
+  );
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(business?.avatarUrl ?? null);
+  const [bio, setBio] = useState(business?.bio ?? '');
+  const [website, setWebsite] = useState(business?.website ?? '');
+  const [instagram, setInstagram] = useState(business?.instagram ?? '');
+  const [phone, setPhone] = useState(business?.phone ?? '');
   const [submitting, setSubmitting] = useState(false);
+  const [savingStep, setSavingStep] = useState(false);
 
   // Debounced address search
   useEffect(() => {
@@ -84,35 +104,54 @@ export function BusinessOnboarding() {
   const totalSteps = 5;
   const progress = (step / totalSteps) * 100;
 
-  const next = () => {
-    tapHaptic();
-    setStep((s) => Math.min(totalSteps, s + 1));
-  };
   const back = () => setStep((s) => Math.max(1, s - 1));
 
   const canAdvanceFrom = (s: number): boolean => {
     if (s === 1) return name.trim().length >= 2;
     if (s === 2) return !!picked;
-    if (s === 3) return bio.trim().length >= 5;
+    if (s === 3) return true; // bio/photo/links all optional
     if (s === 4) return true;
     return true;
   };
 
+  // Persist whatever the current step collected before moving to the next.
+  // The user can drop off mid-flow without losing typed input.
+  const persistCurrentStep = async (): Promise<void> => {
+    setSavingStep(true);
+    try {
+      if (step === 1) {
+        // Creates the business row on first save (INSERT via upsert).
+        await upsertBusiness({ name: name.trim(), category });
+      } else if (step === 2 && picked) {
+        await upsertBusiness({
+          address: picked.placeName ?? null,
+          lat: picked.lat,
+          lng: picked.lng,
+        });
+      } else if (step === 3) {
+        await upsertBusiness({
+          avatarUrl,
+          bio: bio.trim() || null,
+          website: website.trim() || null,
+          instagram: instagram.trim() || null,
+          phone: phone.trim() || null,
+        });
+      }
+    } finally {
+      setSavingStep(false);
+    }
+  };
+
+  const next = async () => {
+    tapHaptic();
+    await persistCurrentStep();
+    setStep((s) => Math.min(totalSteps, s + 1));
+  };
+
   const finish = async () => {
-    if (!picked) return;
     setSubmitting(true);
-    await saveBusiness({
-      name: name.trim(),
-      category,
-      bio: bio.trim(),
-      address: picked.placeName,
-      lat: picked.lat,
-      lng: picked.lng,
-      website: website.trim() || null,
-      instagram: instagram.trim() || null,
-      phone: null,
-      avatarUrl,
-    });
+    // Final tick: flag the user as onboarded so AuthGate releases the overlay.
+    await markOnboarded();
     setSubmitting(false);
     navigate('/feed');
   };
@@ -260,7 +299,7 @@ export function BusinessOnboarding() {
                 <div {...getRootProps({ className: styles.avatarDrop })}>
                   <input {...getInputProps()} />
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className={styles.avatarImg} />
+                    <img src={avatarUrl} alt="" className={styles.avatarImg} loading="lazy" />
                   ) : (
                     <div className={styles.avatarPlaceholder}>
                       <Camera size={22} />
@@ -303,6 +342,18 @@ export function BusinessOnboarding() {
                   className={styles.input}
                 />
               </label>
+
+              <label className={styles.fieldLabel}>
+                Phone (optional)
+                <input
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className={styles.input}
+                  inputMode="tel"
+                />
+              </label>
             </>
           )}
 
@@ -326,10 +377,7 @@ export function BusinessOnboarding() {
               <button
                 type="button"
                 className={styles.primaryBtn}
-                onClick={() => {
-                  // Finish onboarding first; user can record from /post.
-                  next();
-                }}
+                onClick={() => void next()}
               >
                 <Video size={16} /> I'll record later
               </button>
@@ -352,10 +400,10 @@ export function BusinessOnboarding() {
           <button
             type="button"
             className={styles.primaryBtn}
-            disabled={!canAdvanceFrom(step)}
-            onClick={next}
+            disabled={!canAdvanceFrom(step) || savingStep}
+            onClick={() => void next()}
           >
-            Continue <ArrowRight size={16} />
+            {savingStep ? 'Saving…' : 'Continue'} <ArrowRight size={16} />
           </button>
         </div>
       )}

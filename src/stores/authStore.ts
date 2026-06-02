@@ -101,6 +101,22 @@ interface AuthState {
   saveBusinessProfile: (
     fields: Omit<BusinessProfile, 'id' | 'userId' | 'followerCount' | 'isPro' | 'proSince'>,
   ) => Promise<void>;
+  /** Persist a partial business row (per-step onboarding save). Upserts on
+   *  user_id so a half-completed onboarding can resume from where it left off. */
+  upsertBusinessFields: (fields: {
+    name?: string;
+    category?: string;
+    bio?: string | null;
+    address?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    website?: string | null;
+    instagram?: string | null;
+    phone?: string | null;
+    avatarUrl?: string | null;
+  }) => Promise<void>;
+  /** Mark the signed-in user as fully onboarded. Idempotent. */
+  markOnboarded: () => Promise<void>;
   markConsumerOnboarded: () => Promise<void>;
   updateConsumerProfile: (fields: {
     name?: string;
@@ -363,6 +379,49 @@ export const useAuthStore = create<AuthState>()(
       const sb = supabase;
       const { profile } = get();
       if (!sb || !profile) return;
+      await sb.from('users').update({ onboarded: true }).eq('id', profile.id);
+      set((s) => {
+        if (s.profile) s.profile.onboarded = true;
+        s.stage = deriveStageFor(s.session, { ...profile, onboarded: true }, s.business);
+      });
+    },
+
+    upsertBusinessFields: async (fields) => {
+      const sb = supabase;
+      const { profile, business } = get();
+      if (!sb || !profile) return;
+      // Map camelCase → snake_case for Supabase. Only include provided fields.
+      const payload: Record<string, unknown> = { user_id: profile.id };
+      if (fields.name !== undefined) payload.name = fields.name;
+      if (fields.category !== undefined) payload.category = fields.category;
+      if (fields.bio !== undefined) payload.bio = fields.bio;
+      if (fields.address !== undefined) payload.address = fields.address;
+      if (fields.lat !== undefined) payload.lat = fields.lat;
+      if (fields.lng !== undefined) payload.lng = fields.lng;
+      if (fields.website !== undefined) payload.website = fields.website;
+      if (fields.instagram !== undefined) payload.instagram = fields.instagram;
+      if (fields.phone !== undefined) payload.phone = fields.phone;
+      if (fields.avatarUrl !== undefined) payload.avatar_url = fields.avatarUrl;
+      // On the first call there's no business row yet, so name + category
+      // (the step-1 requireds) are needed for the INSERT to succeed.
+      if (!business && (payload.name === undefined || payload.category === undefined)) {
+        return;
+      }
+      const { data, error } = await sb
+        .from('businesses')
+        .upsert(payload, { onConflict: 'user_id' })
+        .select()
+        .single();
+      if (error || !data) return;
+      set((s) => {
+        s.business = rowToBusiness(data);
+      });
+    },
+
+    markOnboarded: async () => {
+      const sb = supabase;
+      const { profile } = get();
+      if (!sb || !profile || profile.onboarded) return;
       await sb.from('users').update({ onboarded: true }).eq('id', profile.id);
       set((s) => {
         if (s.profile) s.profile.onboarded = true;

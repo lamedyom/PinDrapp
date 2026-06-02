@@ -675,7 +675,7 @@ export function PostScreen() {
                 <button type="button" className={styles.photoPicker} onClick={pickPhoto}>
                   {photo ? (
                     <>
-                      <img src={photo.url} alt="" className={styles.photoPreview} />
+                      <img src={photo.url} alt="" className={styles.photoPreview} loading="lazy" />
                       <span className={styles.photoChange}>
                         {photoUploading ? 'Uploading…' : 'Change'}
                       </span>

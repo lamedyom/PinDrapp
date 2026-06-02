@@ -208,7 +208,7 @@ export function EditProfileModal() {
             <div {...getRootProps({ className: styles.imageDrop })}>
               <input {...getInputProps()} />
               {form.imageUrl ? (
-                <img src={form.imageUrl} alt="" className={styles.imagePreview} />
+                <img src={form.imageUrl} alt="" className={styles.imagePreview} loading="lazy" />
               ) : (
                 <div className={styles.imagePlaceholder}>
                   <Camera size={26} />

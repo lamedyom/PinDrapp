@@ -27,7 +27,7 @@ export function Avatar({
         fontSize: Math.round(size * 0.55),
       }}
     >
-      {imageUrl ? <img src={imageUrl} alt="" /> : <span>{emoji}</span>}
+      {imageUrl ? <img src={imageUrl} alt="" loading="lazy" /> : <span>{emoji}</span>}
     </div>
   );
 }

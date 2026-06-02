@@ -14,6 +14,30 @@ import {
   fetchSavedPlaces,
 } from '../lib/supabaseApi';
 
+// Cap any Supabase round-trip on initial bootstrap at 5s. A slow network
+// or paused project shouldn't leave the user staring at a skeleton forever —
+// the screens have empty states ready to render.
+const QUERY_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(p: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(
+      () => reject(new Error(`${label} timed out after ${QUERY_TIMEOUT_MS}ms`)),
+      QUERY_TIMEOUT_MS,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
 /**
  * Hydrates the public stores (feed / deals / explore businesses) from
  * Supabase as soon as the client is configured, and keeps them live via a
@@ -42,7 +66,7 @@ export function useBootstrap(): void {
 
     const loadFeed = async () => {
       try {
-        const feed = await fetchFeed(near, userId);
+        const feed = await withTimeout(fetchFeed(near, userId), 'feed');
         if (!cancelled) useFeedStore.getState().hydrate(feed);
       } catch (e) {
         if (!cancelled) {
@@ -54,7 +78,7 @@ export function useBootstrap(): void {
 
     const loadDeals = async () => {
       try {
-        const deals = await fetchDeals(near);
+        const deals = await withTimeout(fetchDeals(near), 'deals');
         if (!cancelled) useDealStore.getState().hydrate(deals);
       } catch (e) {
         if (!cancelled) {
@@ -66,9 +90,11 @@ export function useBootstrap(): void {
 
     const loadMap = async () => {
       try {
-        const explorePromise = fetchExploreBusinesses(near);
+        const explorePromise = withTimeout(fetchExploreBusinesses(near), 'explore');
         // Saved places are per-user; guests see no pins they didn't save.
-        const savedPromise = userId ? fetchSavedPlaces(userId) : Promise.resolve([]);
+        const savedPromise = userId
+          ? withTimeout(fetchSavedPlaces(userId), 'saved')
+          : Promise.resolve([]);
         const [explore, saved] = await Promise.all([explorePromise, savedPromise]);
         if (cancelled) return;
         useMapStore.getState().hydrateExplore(explore);
@@ -81,7 +107,7 @@ export function useBootstrap(): void {
     const loadCatalog = async () => {
       if (!businessId) return;
       try {
-        const items = await fetchCatalog(businessId);
+        const items = await withTimeout(fetchCatalog(businessId), 'catalog');
         if (!cancelled && items.length) useCatalogStore.getState().hydrate(items);
       } catch {
         // catalog keeps its seed; non-fatal
@@ -95,6 +121,14 @@ export function useBootstrap(): void {
     void loadDeals();
     void loadMap();
     void loadCatalog();
+
+    // Soft refresh of the map's explore pins every 5 minutes — picks up new
+    // businesses without requiring the user to drag the map or reload.
+    // Realtime channels below already react to deal/saved-place changes; this
+    // catches plain `businesses` inserts which aren't on the channel.
+    const mapInterval = window.setInterval(() => {
+      void loadMap();
+    }, 5 * 60 * 1000);
 
     // ── Realtime: refetch on any change (debounced). Payloads don't include
     // the joined business row, so a full refetch is simpler + correct than
@@ -133,6 +167,7 @@ export function useBootstrap(): void {
 
     return () => {
       cancelled = true;
+      window.clearInterval(mapInterval);
       void sb.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
