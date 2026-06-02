@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { Heart, MapPin, MessageCircle, MoreHorizontal, Pin, Share2, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import {
+  ChevronDown,
+  Heart,
+  MapPin,
+  MoreHorizontal,
+  Share2,
+  Trash2,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import ReactPlayer from 'react-player';
 import type { FeedPost } from '../../stores/feedStore';
 import { useFeedStore } from '../../stores/feedStore';
@@ -16,34 +26,31 @@ const PROFILE_URL = 'https://pindrapp.onrender.com/profile';
 
 interface VideoCardProps {
   post: FeedPost;
+  /** True when this is the card the user is currently looking at. */
+  isActive: boolean;
 }
 
-export function VideoCard({ post }: VideoCardProps) {
+export function VideoCard({ post, isActive }: VideoCardProps) {
+  const navigate = useNavigate();
   const likePost = useFeedStore((s) => s.likePost);
   const pinPost = useFeedStore((s) => s.pinPost);
   const removePost = useFeedStore((s) => s.removePost);
+  const isMuted = useFeedStore((s) => s.isMuted);
+  const toggleMute = useFeedStore((s) => s.toggleMute);
   const authBusiness = useAuthStore((s) => s.business);
   const isMine = !!authBusiness && authBusiness.id === post.businessId;
 
-  const [visible, setVisible] = useState(false);
-  const [flyingPin, setFlyingPin] = useState(false);
   const [likeBurst, setLikeBurst] = useState(0);
+  const [doubleTapHeart, setDoubleTapHeart] = useState<{ x: number; y: number; key: number } | null>(null);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const lastTapRef = useRef(0);
 
+  // Reset caption expansion when the card scrolls out of view.
   useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => setVisible(entry.intersectionRatio > 0.5));
-      },
-      { threshold: [0, 0.5, 1] },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+    if (!isActive) setCaptionExpanded(false);
+  }, [isActive]);
 
   const handleLike = () => {
     tapHaptic();
@@ -53,11 +60,7 @@ export function VideoCard({ post }: VideoCardProps) {
 
   const handleSave = () => {
     tapHaptic();
-    setFlyingPin(true);
-    window.setTimeout(() => {
-      pinPost(post.id);
-      setFlyingPin(false);
-    }, 500);
+    pinPost(post.id);
   };
 
   const handleShare = () => {
@@ -69,9 +72,32 @@ export function VideoCard({ post }: VideoCardProps) {
     });
   };
 
+  // Double-tap anywhere on the media area: like + show a heart burst at the
+  // tap coordinates. onClick fires after both touch and mouse taps, so it
+  // works in every environment we care about.
+  const handleMediaTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 320) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setDoubleTapHeart({ x, y, key: now });
+      if (!post.isLiked) likePost(post.id);
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(15);
+      }
+      lastTapRef.current = 0;
+    } else {
+      lastTapRef.current = now;
+    }
+  };
+
+  const goToProfile = () => {
+    if (post.businessId) navigate(`/profile/${post.businessId}`);
+  };
+
   const handleDelete = async () => {
     if (!authBusiness) return;
-    // Optimistic: remove immediately; restore on error.
     removePost(post.id);
     setConfirmDelete(false);
     setMenuOpen(false);
@@ -79,53 +105,90 @@ export function VideoCard({ post }: VideoCardProps) {
       await deletePost(post.id, authBusiness.id);
       showToast('Post deleted');
     } catch {
-      // Best-effort revert — re-add at the original position is hard once
-      // gone, so just re-insert at the top with the data we still hold.
       useFeedStore.getState().prependPost(post);
       showToast('Could not delete post. Try again.');
     }
   };
 
   return (
-    <div
-      ref={cardRef}
+    <article
       id={`post-${post.id}`}
+      data-post-id={post.id}
       className={styles.card}
-      style={{ background: post.thumbnailGradient }}
+      style={post.videoUrl ? undefined : { background: post.thumbnailGradient }}
     >
-      {visible && post.videoUrl ? (
-        <ReactPlayer
-          src={post.videoUrl}
-          playing
-          muted
-          loop
-          width="100%"
-          height="100%"
-          style={{ position: 'absolute', inset: 0, objectFit: 'cover' }}
-        />
-      ) : (
-        <div className={styles.emoji}>{post.businessEmoji}</div>
-      )}
-
-      <div className={styles.gradient} />
-
-      <div className={styles.top}>
-        <div className={styles.bizPill}>
-          <div className={styles.bizEmoji}>{post.businessEmoji}</div>
-          <div className={styles.bizCopy}>
-            <div className={styles.bizName}>{post.businessName}</div>
-            <div className={styles.bizCat}>{post.businessCategory}</div>
+      {/* ── Media layer — full bleed video OR gradient + emoji fallback */}
+      <div className={styles.media} onClick={handleMediaTap}>
+        {post.videoUrl ? (
+          <ReactPlayer
+            src={post.videoUrl}
+            playing={isActive}
+            muted={isMuted}
+            loop
+            width="100%"
+            height="100%"
+            playsInline
+            style={{ position: 'absolute', inset: 0, objectFit: 'cover' }}
+          />
+        ) : (
+          <div className={styles.fallback}>
+            <span className={styles.fallbackEmoji}>{post.businessEmoji}</span>
           </div>
-        </div>
+        )}
+        <div className={styles.scrim} aria-hidden />
+        <AnimatePresence>
+          {doubleTapHeart && (
+            <motion.div
+              key={doubleTapHeart.key}
+              className={styles.doubleTapHeart}
+              style={{ left: doubleTapHeart.x, top: doubleTapHeart.y }}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: [1, 1, 0], scale: [1.2, 1, 0.9] }}
+              transition={{ duration: 0.8 }}
+              onAnimationComplete={() => setDoubleTapHeart(null)}
+            >
+              <Heart size={80} fill="#fff" stroke="#fff" strokeWidth={1.5} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Top bar — business pill on the left, distance + mute + owner menu on the right */}
+      <div className={styles.topBar}>
+        <button
+          type="button"
+          className={styles.bizPill}
+          onClick={goToProfile}
+          aria-label={`Open ${post.businessName} profile`}
+        >
+          <div className={styles.bizPillAvatar}>{post.businessEmoji}</div>
+          <div className={styles.bizPillCopy}>
+            <div className={styles.bizPillName}>{post.businessName}</div>
+            <div className={styles.bizPillCat}>{post.businessCategory}</div>
+          </div>
+        </button>
         <div className={styles.topRight}>
-          <div className={styles.distance}>
-            <MapPin size={11} /> {post.distanceMiles.toFixed(1)} mi
-          </div>
+          {Number.isFinite(post.distanceMiles) && (
+            <div className={styles.distance}>
+              <MapPin size={11} /> {post.distanceMiles.toFixed(1)}mi
+            </div>
+          )}
+          <button
+            type="button"
+            className={styles.muteBtn}
+            aria-label={isMuted ? 'Unmute' : 'Mute'}
+            onClick={() => {
+              tapHaptic();
+              toggleMute();
+            }}
+          >
+            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </button>
           {isMine && (
             <div className={styles.menuWrap}>
               <button
                 type="button"
-                className={styles.menuBtn}
+                className={styles.muteBtn}
                 aria-label="Post options"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -133,7 +196,7 @@ export function VideoCard({ post }: VideoCardProps) {
                 }}
                 onBlur={() => window.setTimeout(() => setMenuOpen(false), 120)}
               >
-                <MoreHorizontal size={14} />
+                <MoreHorizontal size={15} />
               </button>
               {menuOpen && (
                 <div className={styles.menu}>
@@ -155,84 +218,84 @@ export function VideoCard({ post }: VideoCardProps) {
         </div>
       </div>
 
-      <div className={styles.bottom}>
-        <p className={styles.caption}>{post.caption}</p>
-        <div className={styles.actionRow}>
-          <button
-            type="button"
-            className={styles.likeBtn}
-            onClick={handleLike}
-            aria-label={post.isLiked ? 'Unlike' : 'Like'}
+      {/* ── Right action stack: avatar / heart / save / share */}
+      <div className={styles.actions}>
+        <button
+          type="button"
+          className={styles.actionAvatar}
+          onClick={goToProfile}
+          aria-label="Business profile"
+        >
+          {post.businessEmoji}
+        </button>
+        <button
+          type="button"
+          className={styles.actionBtn}
+          onClick={handleLike}
+          aria-label={post.isLiked ? 'Unlike' : 'Like'}
+        >
+          <motion.span
+            key={likeBurst}
+            animate={{ scale: [1, 1.35, 1] }}
+            transition={{ duration: 0.28 }}
+            className={styles.actionIcon}
           >
-            <motion.span
-              key={likeBurst}
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 0.25 }}
-              className={styles.likeIcon}
-            >
-              <Heart
-                size={18}
-                fill={post.isLiked ? '#FF3A3A' : 'transparent'}
-                stroke={post.isLiked ? '#FF3A3A' : '#fff'}
-                strokeWidth={1.8}
-              />
-            </motion.span>
-            <span className={styles.likeCount}>{post.likeCount}</span>
-          </button>
-
-          <span className={styles.commentBtn} aria-label="Comments (coming soon)">
-            <MessageCircle size={17} strokeWidth={1.8} />
-            <span className={styles.likeCount}>{post.commentCount ?? 0}</span>
-          </span>
-
-          <button
-            type="button"
-            className={styles.commentBtn}
-            onClick={handleShare}
-            aria-label={`Share ${post.businessName}`}
-          >
-            <Share2 size={17} strokeWidth={1.8} />
-          </button>
-
-          {post.isPinned && (
-            <span className={styles.pinned}>
-              <Pin size={14} /> Pinned
-            </span>
-          )}
-
-          <div className={styles.actionsRight}>
-            {!post.isPinned && (
-              <button
-                type="button"
-                className={styles.saveBtn}
-                onClick={handleSave}
-                aria-label="Save to map"
-              >
-                <Pin size={12} /> Save to Map
-              </button>
-            )}
-          </div>
-        </div>
+            <Heart
+              size={30}
+              fill={post.isLiked ? '#FF3A3A' : 'transparent'}
+              stroke={post.isLiked ? '#FF3A3A' : '#fff'}
+              strokeWidth={1.6}
+            />
+          </motion.span>
+          <span className={styles.actionLabel}>{post.likeCount}</span>
+        </button>
+        <button
+          type="button"
+          className={styles.actionBtn}
+          onClick={handleSave}
+          aria-label={post.isPinned ? 'Saved' : 'Save to map'}
+        >
+          <MapPin
+            size={30}
+            fill={post.isPinned ? '#1A3AFF' : 'transparent'}
+            stroke="#fff"
+            strokeWidth={1.6}
+          />
+          <span className={styles.actionLabel}>{post.isPinned ? 'Saved' : 'Save'}</span>
+        </button>
+        <button
+          type="button"
+          className={styles.actionBtn}
+          onClick={handleShare}
+          aria-label="Share"
+        >
+          <Share2 size={28} stroke="#fff" strokeWidth={1.7} />
+          <span className={styles.actionLabel}>Share</span>
+        </button>
       </div>
 
-      <AnimatePresence>
-        {flyingPin && (
-          <motion.div
-            className={styles.flyingPin}
-            initial={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-            animate={{
-              opacity: 0,
-              scale: 0.3,
-              x: -120,
-              y: 220,
-            }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            exit={{ opacity: 0 }}
-          >
-            <Pin size={20} fill="#1A3AFF" stroke="#1A3AFF" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── Bottom info overlay */}
+      <div className={styles.bottom}>
+        <div className={styles.bottomName}>{post.businessName}</div>
+        <div className={styles.bottomCat}>{post.businessCategory.toUpperCase()}</div>
+        <p
+          className={`${styles.caption} ${captionExpanded ? styles.captionExpanded : ''}`}
+          onClick={() => setCaptionExpanded((v) => !v)}
+        >
+          {post.caption}
+          {!captionExpanded && post.caption.length > 90 && (
+            <span className={styles.more}> …more</span>
+          )}
+        </p>
+        {/* Active-deal pill — only present when the FeedPost type gets a deal
+            attached. The current schema gates that out of the feed, so this
+            stays dormant for the day a deal_id ever lands on FeedPost. */}
+      </div>
+
+      {/* ── Visible-to-touch swipe-down affordance (purely cosmetic) */}
+      <div className={styles.swipeHint} aria-hidden>
+        <ChevronDown size={20} />
+      </div>
 
       <ConfirmDialog
         open={confirmDelete}
@@ -242,6 +305,6 @@ export function VideoCard({ post }: VideoCardProps) {
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmDelete(false)}
       />
-    </div>
+    </article>
   );
 }

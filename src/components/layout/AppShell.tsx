@@ -21,8 +21,14 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const meta = TITLE_BY_PATH[location.pathname] ?? {};
   const isBusinessProfile = location.pathname.startsWith('/profile/');
-  const hideTopBar = location.pathname === '/map' || isBusinessProfile;
-  const noScroll = location.pathname === '/map';
+  // Full-bleed surfaces — Feed is now a TikTok-style snap scroller and Map
+  // owns its own canvas, so AppShell stops drawing the TopBar and stops
+  // wrapping them in the scrollable .main.
+  const hideTopBar =
+    location.pathname === '/map' ||
+    location.pathname === '/feed' ||
+    isBusinessProfile;
+  const noScroll = location.pathname === '/map' || location.pathname === '/feed';
 
   // While active turn-by-turn navigation is running, hide the bottom nav
   // so the map can take over the full screen (Waze / Google Maps style).

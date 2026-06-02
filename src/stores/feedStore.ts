@@ -45,6 +45,8 @@ interface FeedState {
   loading: boolean;
   /** True once a real Supabase fetch has completed (even if it returned 0). */
   hydrated: boolean;
+  /** Global mute flag — persists as the user scrolls between full-screen cards. */
+  isMuted: boolean;
 
   likePost: (id: string) => void;
   pinPost: (id: string) => void;
@@ -53,6 +55,7 @@ interface FeedState {
   removePost: (id: string) => void;
   hydrate: (posts: FeedPost[]) => void;
   setLoading: (loading: boolean) => void;
+  toggleMute: () => void;
 }
 
 
@@ -60,6 +63,7 @@ export const useFeedStore = create<FeedState>()(
   immer((set, get) => ({
     posts: [],
     activeTab: 'updates',
+    isMuted: true,
     loading: false,
     hydrated: false,
 
@@ -163,6 +167,11 @@ export const useFeedStore = create<FeedState>()(
     setLoading: (loading) =>
       set((s) => {
         s.loading = loading;
+      }),
+
+    toggleMute: () =>
+      set((s) => {
+        s.isMuted = !s.isMuted;
       }),
   })),
 );

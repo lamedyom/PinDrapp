@@ -8,7 +8,6 @@ import { StoryRail } from './StoryRail';
 import { VideoCard } from './VideoCard';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';
-import { Skeleton } from '../../components/ui/Skeleton';
 import { fetchFeed } from '../../lib/supabaseApi';
 import styles from './FeedScreen.module.css';
 
@@ -32,10 +31,51 @@ export function FeedScreen() {
   const userId = useAuthStore((s) => s.profile?.id);
   const userLocation = useMapStore((s) => s.userLocation);
 
-  // ── Pull-to-refresh ─────────────────────────────────────────────────────
-  const screenRef = useRef<HTMLDivElement>(null);
+  const visiblePosts = useMemo(() => {
+    if (activeTab === 'nearby') return [...posts].sort((a, b) => a.distanceMiles - b.distanceMiles);
+    if (activeTab === 'ai') return [];
+    return posts;
+  }, [posts, activeTab]);
+
+  // ── Active card detection — exactly one card "plays" at a time.
+  const [activePostId, setActivePostId] = useState<string | null>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = scrollerRef.current;
+    if (!root) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        // Pick the entry with the highest intersectionRatio that crosses the
+        // active threshold — guards against two cards both being "kinda" in
+        // view during snap-scroll easing.
+        let best: { id: string; ratio: number } | null = null;
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).dataset.postId;
+          if (!id) continue;
+          if (e.intersectionRatio >= 0.7 && (!best || e.intersectionRatio > best.ratio)) {
+            best = { id, ratio: e.intersectionRatio };
+          }
+        }
+        if (best) setActivePostId(best.id);
+      },
+      { root, threshold: [0, 0.7, 0.9, 1] },
+    );
+    const cards = root.querySelectorAll('[data-post-id]');
+    cards.forEach((c) => obs.observe(c));
+    return () => obs.disconnect();
+  }, [visiblePosts.length]);
+
+  // Default the active card to the first one on initial render so it autoplays.
+  useEffect(() => {
+    if (!activePostId && visiblePosts[0]) setActivePostId(visiblePosts[0].id);
+  }, [visiblePosts, activePostId]);
+
+  // ── Pull-to-refresh on the snap container itself.
   const [pullDist, setPullDist] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const pullDistRef = useRef(0);
+  pullDistRef.current = pullDist;
   const pullRef = useRef({ startY: 0, tracking: false });
 
   const refresh = async () => {
@@ -57,18 +97,10 @@ export function FeedScreen() {
   };
 
   useEffect(() => {
-    const root = screenRef.current;
-    if (!root) return;
-    // Closest scrollable ancestor (AppShell <main>); only arm the pull when
-    // it's already at scrollTop=0 so we never hijack a normal scroll-up.
-    let scroller: HTMLElement | null = root.parentElement;
-    while (scroller && getComputedStyle(scroller).overflowY === 'visible') {
-      scroller = scroller.parentElement;
-    }
-    if (!scroller) scroller = document.scrollingElement as HTMLElement;
-
+    const el = scrollerRef.current;
+    if (!el) return;
     const onStart = (e: TouchEvent) => {
-      if (!scroller || scroller.scrollTop > 0 || refreshing) return;
+      if (el.scrollTop > 0 || refreshing) return;
       pullRef.current.startY = e.touches[0].clientY;
       pullRef.current.tracking = true;
     };
@@ -79,8 +111,6 @@ export function FeedScreen() {
         setPullDist(0);
         return;
       }
-      // Rubber-band: damp the visual distance so the indicator never feels
-      // glued to a finger that's still moving past threshold.
       setPullDist(Math.min(dy * 0.55, PULL_THRESHOLD * 1.8));
     };
     const onEnd = () => {
@@ -92,33 +122,59 @@ export function FeedScreen() {
         setPullDist(0);
       }
     };
-
-    root.addEventListener('touchstart', onStart, { passive: true });
-    root.addEventListener('touchmove', onMove, { passive: true });
-    root.addEventListener('touchend', onEnd);
-    root.addEventListener('touchcancel', onEnd);
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: true });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
     return () => {
-      root.removeEventListener('touchstart', onStart);
-      root.removeEventListener('touchmove', onMove);
-      root.removeEventListener('touchend', onEnd);
-      root.removeEventListener('touchcancel', onEnd);
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshing, userId, userLocation?.lat, userLocation?.lng]);
 
-  // Mirror pullDist into a ref so the touchend handler can read it without
-  // re-binding listeners on every state change.
-  const pullDistRef = useRef(0);
-  pullDistRef.current = pullDist;
-
-  const visiblePosts = useMemo(() => {
-    if (activeTab === 'nearby') return [...posts].sort((a, b) => a.distanceMiles - b.distanceMiles);
-    if (activeTab === 'ai') return [];
-    return posts;
-  }, [posts, activeTab]);
+  // ── Story rail visibility — fade it out as the user scrolls past the
+  // very first card (Instagram-Stories feel).
+  const [storyOpacity, setStoryOpacity] = useState(1);
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const ratio = el.scrollTop / Math.max(1, window.innerHeight * 0.6);
+      setStoryOpacity(Math.max(0, 1 - ratio));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [visiblePosts.length]);
 
   return (
-    <div ref={screenRef} className={styles.screen}>
+    <div className={styles.screen}>
+      {/* ── Floating top overlay: tab pill + story rail */}
+      <div
+        className={styles.topOverlay}
+        style={{ opacity: storyOpacity > 0.04 ? 1 : 0.85 }}
+      >
+        <div className={styles.tabPill}>
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`${styles.tab} ${activeTab === t.id ? styles.tabActive : ''}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className={styles.storyRailWrap} style={{ opacity: storyOpacity }}>
+          <StoryRail />
+        </div>
+      </div>
+
+      {/* ── Pull-to-refresh banner (above everything in the scroller) */}
       {(pullDist > 0 || refreshing) && (
         <div
           className={`${styles.pullIndicator} ${refreshing ? styles.pullIndicatorActive : ''}`}
@@ -135,71 +191,44 @@ export function FeedScreen() {
           <span>{refreshing ? 'Refreshing…' : 'Pull to refresh'}</span>
         </div>
       )}
-      <StoryRail />
 
-      <div className={styles.tabs}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`${styles.tab} ${activeTab === t.id ? styles.tabActive : ''}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'ai' ? (
-        <EmptyState
-          icon={<Pin size={36} />}
-          message="AI assistant coming soon — ask Pindrapp anything about nearby places, deals, and recommendations."
-        />
-      ) : loading && posts.length === 0 ? (
-        <div className={styles.list}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <FeedSkeleton key={i} />
-          ))}
-        </div>
-      ) : visiblePosts.length === 0 ? (
-        <EmptyState
-          icon={<Pin size={36} />}
-          message="No updates yet. Be the first business to post, or explore the map to discover businesses near you."
-          action={
-            <div className={styles.emptyActions}>
-              <Button variant="save" onClick={() => navigate('/map')}>
-                Explore Map
-              </Button>
-              {isBusinessOwner && (
-                <Button variant="primary" onClick={() => navigate('/post')}>
-                  Post Your First Update
-                </Button>
-              )}
-            </div>
-          }
-        />
-      ) : (
-        <div className={styles.list}>
-          {visiblePosts.map((post) => (
-            <VideoCard key={post.id} post={post} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FeedSkeleton() {
-  return (
-    <div style={{ height: 340, position: 'relative', overflow: 'hidden' }}>
-      <Skeleton width="100%" height={340} radius={0} />
-      <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', justifyContent: 'space-between' }}>
-        <Skeleton width={140} height={34} radius={20} />
-        <Skeleton width={70} height={28} radius={20} />
-      </div>
-      <div style={{ position: 'absolute', bottom: 16, left: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Skeleton width="80%" height={12} radius={6} />
-        <Skeleton width="40%" height={12} radius={6} />
+      {/* ── Snap scroller */}
+      <div ref={scrollerRef} className={styles.scroller}>
+        {activeTab === 'ai' ? (
+          <div className={styles.fullScreenEmpty}>
+            <EmptyState
+              icon={<Pin size={36} />}
+              message="AI assistant coming soon — ask Pindrapp anything about nearby places, deals, and recommendations."
+            />
+          </div>
+        ) : loading && visiblePosts.length === 0 ? (
+          <div className={styles.fullScreenEmpty}>
+            <div className={styles.loadingMsg}>Loading feed…</div>
+          </div>
+        ) : visiblePosts.length === 0 ? (
+          <div className={styles.fullScreenEmpty}>
+            <EmptyState
+              icon={<Pin size={36} />}
+              message="No updates yet. Be the first business to post, or explore the map to discover businesses near you."
+              action={
+                <div className={styles.emptyActions}>
+                  <Button variant="save" onClick={() => navigate('/map')}>
+                    Explore Map
+                  </Button>
+                  {isBusinessOwner && (
+                    <Button variant="primary" onClick={() => navigate('/post')}>
+                      Post Your First Update
+                    </Button>
+                  )}
+                </div>
+              }
+            />
+          </div>
+        ) : (
+          visiblePosts.map((post) => (
+            <VideoCard key={post.id} post={post} isActive={activePostId === post.id} />
+          ))
+        )}
       </div>
     </div>
   );
