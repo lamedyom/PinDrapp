@@ -121,3 +121,9 @@ main {
   background: rgba(255, 92, 26, 0.12) !important;
   color: var(--text-primary) !important;
 }
+
+/* Reusable rotation for inline loading spinners (feed video, etc). */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

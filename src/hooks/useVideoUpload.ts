@@ -66,6 +66,13 @@ export function useVideoUpload(): UseVideoUpload {
     formData.append('file', file);
     formData.append('upload_preset', preset);
     formData.append('resource_type', 'video');
+    // Pre-generate the cross-browser variants Cloudinary will serve at play
+    // time. Async = the upload returns immediately; the variants warm in
+    // the background. f_auto/q_auto/vc_auto matches the runtime URL
+    // transform in src/lib/cloudinary.ts so the first request is a cache
+    // hit instead of a cold transform.
+    formData.append('eager', 'f_auto,q_auto,vc_auto');
+    formData.append('eager_async', 'true');
 
     const xhr = new XMLHttpRequest();
     xhr.upload.onprogress = (e) => {

@@ -14,14 +14,13 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import ReactPlayer from 'react-player';
-import type { ComponentRef } from 'react';
 import type { FeedPost } from '../../stores/feedStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { useAuthStore } from '../../stores/authStore';
 import { tapHaptic } from '../../lib/haptics';
 import { shareContent } from '../../lib/share';
 import { deletePost } from '../../lib/supabaseApi';
+import { getStreamableUrl } from '../../lib/cloudinary';
 import { showToast } from '../../stores/toastStore';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import styles from './VideoCard.module.css';
@@ -52,11 +51,43 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [playerError, setPlayerError] = useState(false);
   const lastTapRef = useRef(0);
-  // react-player v3 exposes the underlying <video> through its ref. We grab
-  // it so we can re-kick playback if iOS or the tab visibility change pauses
-  // us under the hood.
-  const playerRef = useRef<ComponentRef<typeof ReactPlayer> | null>(null);
+  // Native <video> ref — replaced react-player because Cloudinary mp4s would
+  // sometimes mount as a black frame under react-player's wrapper. The bare
+  // element is the most reliable thing on mobile.
+  const nativeVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Run Cloudinary URLs through the f_auto/q_auto/vc_auto transform so the
+  // CDN picks the right container + codec per browser. Non-Cloudinary URLs
+  // pass through unchanged.
+  const sourceUrl = post.videoUrl ? getStreamableUrl(post.videoUrl) : '';
+
+  // Drive play/pause from `isActive`. The element stays mounted so we never
+  // get the black-flash that came from remounting on every active swap.
+  useEffect(() => {
+    const v = nativeVideoRef.current;
+    if (!v) return;
+    if (isActive) {
+      const p = v.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch((err) => {
+          // eslint-disable-next-line no-console
+          console.log('[pindrapp] play blocked:', err);
+        });
+      }
+    } else {
+      v.pause();
+    }
+  }, [isActive]);
+
+  // Keep the muted attribute in sync — flipping the mute button at the
+  // VideoCard level shouldn't tear down the element.
+  useEffect(() => {
+    const v = nativeVideoRef.current;
+    if (v) v.muted = isMuted;
+  }, [isMuted]);
 
   // iOS Safari pauses background videos when the tab goes hidden. When the
   // tab comes back we re-issue play() on the active card — without this the
@@ -66,9 +97,9 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
     const onVis = () => {
       if (document.visibilityState !== 'visible') return;
       if (!isActive) return;
-      const el = playerRef.current as HTMLVideoElement | null;
-      if (el && typeof el.play === 'function') {
-        const p = el.play();
+      const v = nativeVideoRef.current;
+      if (v) {
+        const p = v.play();
         if (p && typeof p.catch === 'function') p.catch(() => undefined);
       }
     };
@@ -157,21 +188,38 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
       className={styles.card}
       style={post.videoUrl ? undefined : { background: post.thumbnailGradient }}
     >
-      {/* ── Media layer — full bleed video OR gradient + emoji fallback.
-       *    Stays mounted across active/inactive transitions (we just set
-       *    playing=false) so we don't get the black flash on remount. */}
+      {/* ── Media layer — gradient (always present as fallback) + native
+       *    <video> element (most reliable on mobile) + loading spinner
+       *    that fades out once the first frame is ready. The element stays
+       *    mounted across active/inactive transitions so we never re-decode
+       *    from scratch and never see a black flash. */}
       <div className={styles.media} onClick={handleMediaTap}>
-        {post.videoUrl ? (
-          <ReactPlayer
-            ref={playerRef as never}
-            src={post.videoUrl}
-            playing={isActive}
-            muted={isMuted}
+        {/* Gradient backdrop — always visible behind the video so a slow
+            load or a hard failure never leaves a black card. */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              post.thumbnailGradient ?? 'linear-gradient(160deg, #1a0d2e, #0d1f3c)',
+          }}
+        />
+
+        {sourceUrl && !playerError && (
+          <video
+            ref={nativeVideoRef}
+            src={sourceUrl}
             loop
+            muted={isMuted}
             playsInline
-            autoPlay
-            width="100%"
-            height="100%"
+            autoPlay={isActive}
+            preload="metadata"
+            onLoadedData={() => setVideoLoaded(true)}
+            onError={(e) => {
+              // eslint-disable-next-line no-console
+              console.error('[pindrapp] video error:', e);
+              setPlayerError(true);
+            }}
             style={{
               position: 'absolute',
               top: 0,
@@ -179,37 +227,48 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-            }}
-            onError={(e: unknown) => {
-              // eslint-disable-next-line no-console
-              console.warn('[pindrapp] video error:', e);
-            }}
-            onPause={() => {
-              // iOS sometimes pauses our video unprompted (lock screen,
-              // background, low-power). If we're still the active card,
-              // nudge playback back from the start.
-              if (!isActive) return;
-              const el = playerRef.current as HTMLVideoElement | null;
-              if (!el) return;
-              window.setTimeout(() => {
-                if (!isActive) return;
-                try {
-                  if (Number.isFinite(el.currentTime) && el.currentTime > 0.05) {
-                    el.currentTime = 0;
-                  }
-                  const p = el.play();
-                  if (p && typeof p.catch === 'function') p.catch(() => undefined);
-                } catch {
-                  // best-effort restart
-                }
-              }, 200);
+              opacity: videoLoaded ? 1 : 0,
+              transition: 'opacity 0.4s ease',
+              display: 'block',
+              background: '#000',
             }}
           />
-        ) : (
+        )}
+
+        {/* Spinner while the video is fetching — only when we actually
+            have a video URL and it hasn't errored. */}
+        {sourceUrl && !videoLoaded && !playerError && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2,
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                border: '3px solid rgba(255,255,255,0.15)',
+                borderTop: '3px solid #FF5C1A',
+                borderRadius: '50%',
+                animation: 'spin 0.9s linear infinite',
+              }}
+            />
+          </div>
+        )}
+
+        {/* No video at all → category emoji centered on the gradient. */}
+        {!sourceUrl && (
           <div className={styles.fallback}>
             <span className={styles.fallbackEmoji}>{post.businessEmoji}</span>
           </div>
         )}
+
         <div className={styles.scrim} aria-hidden />
         <div className={styles.scrimBottom} aria-hidden />
         <AnimatePresence>
