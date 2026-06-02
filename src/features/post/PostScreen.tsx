@@ -238,6 +238,7 @@ export function PostScreen() {
         businessName: authBusiness?.name ?? 'Your Business',
         businessCategory: authBusiness?.category ?? 'Featured',
         businessEmoji: '✨',
+        businessAvatarUrl: authBusiness?.avatarUrl ?? null,
         caption,
         likeCount: 0,
         hypeCount: 0,

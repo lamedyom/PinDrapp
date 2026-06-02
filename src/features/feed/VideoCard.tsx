@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactPlayer from 'react-player';
+import type { ComponentRef } from 'react';
 import type { FeedPost } from '../../stores/feedStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -52,6 +53,28 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const lastTapRef = useRef(0);
+  // react-player v3 exposes the underlying <video> through its ref. We grab
+  // it so we can re-kick playback if iOS or the tab visibility change pauses
+  // us under the hood.
+  const playerRef = useRef<ComponentRef<typeof ReactPlayer> | null>(null);
+
+  // iOS Safari pauses background videos when the tab goes hidden. When the
+  // tab comes back we re-issue play() on the active card — without this the
+  // card sometimes stays frozen on the last frame.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!isActive) return;
+      const el = playerRef.current as HTMLVideoElement | null;
+      if (el && typeof el.play === 'function') {
+        const p = el.play();
+        if (p && typeof p.catch === 'function') p.catch(() => undefined);
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [isActive]);
 
   // Reset caption expansion when the card scrolls out of view.
   useEffect(() => {
@@ -134,18 +157,53 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
       className={styles.card}
       style={post.videoUrl ? undefined : { background: post.thumbnailGradient }}
     >
-      {/* ── Media layer — full bleed video OR gradient + emoji fallback */}
+      {/* ── Media layer — full bleed video OR gradient + emoji fallback.
+       *    Stays mounted across active/inactive transitions (we just set
+       *    playing=false) so we don't get the black flash on remount. */}
       <div className={styles.media} onClick={handleMediaTap}>
         {post.videoUrl ? (
           <ReactPlayer
+            ref={playerRef as never}
             src={post.videoUrl}
             playing={isActive}
             muted={isMuted}
             loop
+            playsInline
+            autoPlay
             width="100%"
             height="100%"
-            playsInline
-            style={{ position: 'absolute', inset: 0, objectFit: 'cover' }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+            onError={(e: unknown) => {
+              // eslint-disable-next-line no-console
+              console.warn('[pindrapp] video error:', e);
+            }}
+            onPause={() => {
+              // iOS sometimes pauses our video unprompted (lock screen,
+              // background, low-power). If we're still the active card,
+              // nudge playback back from the start.
+              if (!isActive) return;
+              const el = playerRef.current as HTMLVideoElement | null;
+              if (!el) return;
+              window.setTimeout(() => {
+                if (!isActive) return;
+                try {
+                  if (Number.isFinite(el.currentTime) && el.currentTime > 0.05) {
+                    el.currentTime = 0;
+                  }
+                  const p = el.play();
+                  if (p && typeof p.catch === 'function') p.catch(() => undefined);
+                } catch {
+                  // best-effort restart
+                }
+              }, 200);
+            }}
           />
         ) : (
           <div className={styles.fallback}>
@@ -153,6 +211,7 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
           </div>
         )}
         <div className={styles.scrim} aria-hidden />
+        <div className={styles.scrimBottom} aria-hidden />
         <AnimatePresence>
           {doubleTapHeart && (
             <motion.div
@@ -170,20 +229,10 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
         </AnimatePresence>
       </div>
 
-      {/* ── Top bar — business pill on the left, distance + mute + owner menu on the right */}
+      {/* ── Top bar — only the right-side controls now (distance + mute +
+       *    owner ⋯). The business identity moved to the right-side circular
+       *    avatar to avoid duplicating it twice on the same card. */}
       <div className={styles.topBar}>
-        <button
-          type="button"
-          className={styles.bizPill}
-          onClick={goToProfile}
-          aria-label={`Open ${post.businessName} profile`}
-        >
-          <div className={styles.bizPillAvatar}>{post.businessEmoji}</div>
-          <div className={styles.bizPillCopy}>
-            <div className={styles.bizPillName}>{post.businessName}</div>
-            <div className={styles.bizPillCat}>{post.businessCategory}</div>
-          </div>
-        </button>
         <div className={styles.topRight}>
           {Number.isFinite(post.distanceMiles) && (
             <div className={styles.distance}>
@@ -235,15 +284,24 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
         </div>
       </div>
 
-      {/* ── Right action stack: avatar / heart / save / share */}
+      {/* ── Right action stack: avatar / heart / hype / save / follow / share */}
       <div className={styles.actions}>
         <button
           type="button"
           className={styles.actionAvatar}
           onClick={goToProfile}
-          aria-label="Business profile"
+          aria-label={`Open ${post.businessName} profile`}
         >
-          {post.businessEmoji}
+          {post.businessAvatarUrl ? (
+            <img
+              src={post.businessAvatarUrl}
+              alt={post.businessName}
+              className={styles.actionAvatarImg}
+              loading="lazy"
+            />
+          ) : (
+            <span>{(post.businessName?.[0] ?? '?').toUpperCase()}</span>
+          )}
         </button>
         <button
           type="button"

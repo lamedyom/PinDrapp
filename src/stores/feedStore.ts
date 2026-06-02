@@ -12,7 +12,7 @@ import {
 } from '../lib/supabaseApi';
 import { autoPin } from '../lib/autoPin';
 
-export type FeedTab = 'updates' | 'nearby' | 'ai';
+export type FeedTab = 'updates' | 'nearby';
 
 export type FeedCategory =
   | 'announcement'
@@ -28,6 +28,9 @@ export interface FeedPost {
   businessName: string;
   businessCategory: string;
   businessEmoji: string;
+  /** Real business profile photo. When null, the UI falls back to a colored
+   *  circle with the first letter of the business name (never the emoji). */
+  businessAvatarUrl: string | null;
   caption: string;
   likeCount: number;
   hypeCount: number;

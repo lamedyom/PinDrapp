@@ -51,32 +51,6 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
   const chunksRef = useRef<Blob[]>([]);
   const tickRef = useRef<number | null>(null);
 
-  // Attach the live stream to the <video> with every mobile-safe attribute set
-  // imperatively. The 'playsinline' attribute (not just the JSX prop) is the
-  // critical one — without it iOS Safari shows a black preview even while
-  // recording works.
-  const attachStream = useCallback((stream: MediaStream) => {
-    const el = videoRef.current;
-    if (!el) return;
-    el.srcObject = stream;
-    el.setAttribute('playsinline', 'true');
-    el.setAttribute('webkit-playsinline', 'true');
-    el.setAttribute('muted', 'true');
-    el.muted = true;
-    el.autoplay = true;
-    // Small delay before play() — some mobile browsers race the element
-    // mount with the srcObject assignment and need a tick.
-    window.setTimeout(() => {
-      const p = el.play();
-      if (p && typeof p.catch === 'function') {
-        p.catch((err) => {
-          // eslint-disable-next-line no-console
-          console.warn('[pindrapp] camera autoplay blocked:', err);
-        });
-      }
-    }, 100);
-  }, []);
-
   // Front-vs-rear camera. `armCamera` reads this to request the right facing
   // mode. The flip button below stops the current stream and re-arms.
   const [facing, setFacing] = useState<'environment' | 'user'>('environment');
@@ -93,6 +67,20 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
     tickRef.current = null;
   }, []);
 
+  // Wait until the <video> element is actually mounted in the DOM. Mobile
+  // browsers will silently render a black frame if srcObject is assigned
+  // before the element exists. Used by armCamera below.
+  const waitForVideoEl = (): Promise<HTMLVideoElement> =>
+    new Promise((resolve, reject) => {
+      const start = performance.now();
+      const tick = () => {
+        if (videoRef.current) return resolve(videoRef.current);
+        if (performance.now() - start > 3000) return reject(new Error('video-el-timeout'));
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+
   // ── Open the camera into a live (not-yet-recording) preview.
   const armCamera = async () => {
     setStreamErr(null);
@@ -101,30 +89,86 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
       setStreamErr('Camera not supported on this device.');
       return;
     }
+    // Stop any prior stream so we don't end up with two simultaneous open
+    // cameras on flip / retry.
+    stopTracks();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facingRef.current, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: {
+          facingMode: { ideal: facingRef.current },
+          width: { ideal: 1080 },
+          height: { ideal: 1920 },
+        },
         audio: true,
       });
       streamRef.current = stream;
+      // Render the <video> element first by flipping mode → 'armed', then
+      // wait for the ref to populate before attaching the stream.
       setMode('armed');
-      attachStream(stream);
+      const el = await waitForVideoEl();
+      // Set DOM attributes directly — not just the React props — because
+      // iOS Safari uses presence of the attribute, not the React value,
+      // when deciding whether to inline the video.
+      el.setAttribute('playsinline', '');
+      el.setAttribute('webkit-playsinline', '');
+      el.setAttribute('muted', '');
+      el.setAttribute('autoplay', '');
+      el.muted = true;
+      el.playsInline = true;
+      el.srcObject = stream;
+      // Wait for the metadata so play() has dimensions to work with. Falls
+      // back after 3s in case the event never arrives (some Android builds).
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        el.onloadedmetadata = done;
+        el.onerror = done;
+        window.setTimeout(done, 3000);
+      });
+      try {
+        await el.play();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[pindrapp] camera autoplay blocked, retrying:', err);
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        try {
+          await el.play();
+        } catch {
+          // best-effort — surface as a soft error if it still won't play
+          setStreamErr('Tap inside the preview to start the camera.');
+        }
+      }
     } catch (err) {
       const name = err instanceof DOMException ? err.name : '';
       if (name === 'NotAllowedError' || name === 'SecurityError') {
         setPermissionDenied(true);
+        setMode('idle');
       } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
         // Retry without the rear-camera constraint (desktops have no env cam).
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           streamRef.current = stream;
+          const el = await waitForVideoEl();
+          el.setAttribute('playsinline', '');
+          el.setAttribute('webkit-playsinline', '');
+          el.setAttribute('muted', '');
+          el.setAttribute('autoplay', '');
+          el.muted = true;
+          el.playsInline = true;
+          el.srcObject = stream;
+          await el.play().catch(() => undefined);
           setMode('armed');
-          attachStream(stream);
         } catch {
           setStreamErr('No camera found.');
+          setMode('idle');
         }
       } else {
         setStreamErr(err instanceof Error ? err.message : 'Camera unavailable');
+        setMode('idle');
       }
     }
   };

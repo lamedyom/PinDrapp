@@ -13,10 +13,11 @@ import styles from './FeedScreen.module.css';
 
 const PULL_THRESHOLD = 60;
 
+// Note: 'ai' is intentionally absent — AI search lives in the Radar tab in
+// the bottom nav now, so duplicating it in the feed would be confusing.
 const TABS: { id: FeedTab; label: string }[] = [
   { id: 'updates', label: 'Updates' },
   { id: 'nearby', label: 'Nearby' },
-  { id: 'ai', label: 'AI Ask' },
 ];
 
 export function FeedScreen() {
@@ -33,7 +34,6 @@ export function FeedScreen() {
 
   const visiblePosts = useMemo(() => {
     if (activeTab === 'nearby') return [...posts].sort((a, b) => a.distanceMiles - b.distanceMiles);
-    if (activeTab === 'ai') return [];
     return posts;
   }, [posts, activeTab]);
 
@@ -48,18 +48,19 @@ export function FeedScreen() {
       (entries) => {
         // Pick the entry with the highest intersectionRatio that crosses the
         // active threshold — guards against two cards both being "kinda" in
-        // view during snap-scroll easing.
+        // view during snap-scroll easing. Threshold dropped to 0.6 so we
+        // settle on the new card sooner during the snap animation.
         let best: { id: string; ratio: number } | null = null;
         for (const e of entries) {
           const id = (e.target as HTMLElement).dataset.postId;
           if (!id) continue;
-          if (e.intersectionRatio >= 0.7 && (!best || e.intersectionRatio > best.ratio)) {
+          if (e.intersectionRatio >= 0.6 && (!best || e.intersectionRatio > best.ratio)) {
             best = { id, ratio: e.intersectionRatio };
           }
         }
         if (best) setActivePostId(best.id);
       },
-      { root, threshold: [0, 0.7, 0.9, 1] },
+      { root, threshold: [0.6, 0.8] },
     );
     const cards = root.querySelectorAll('[data-post-id]');
     cards.forEach((c) => obs.observe(c));
@@ -194,14 +195,7 @@ export function FeedScreen() {
 
       {/* ── Snap scroller */}
       <div ref={scrollerRef} className={styles.scroller}>
-        {activeTab === 'ai' ? (
-          <div className={styles.fullScreenEmpty}>
-            <EmptyState
-              icon={<Pin size={36} />}
-              message="AI assistant coming soon — ask Pindrapp anything about nearby places, deals, and recommendations."
-            />
-          </div>
-        ) : loading && visiblePosts.length === 0 ? (
+        {loading && visiblePosts.length === 0 ? (
           <div className={styles.fullScreenEmpty}>
             <div className={styles.loadingMsg}>Loading feed…</div>
           </div>
