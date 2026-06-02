@@ -65,21 +65,33 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
   const sourceUrl = post.videoUrl ? getStreamableUrl(post.videoUrl) : '';
 
   // Drive play/pause from `isActive`. The element stays mounted so we never
+  // Drive play/pause from `isActive`. The element stays mounted so we never
   // get the black-flash that came from remounting on every active swap.
+  // play() can only be called once the media has enough data — if it's not
+  // ready, queue the play on the next `canplay` event instead of racing.
   useEffect(() => {
     const v = nativeVideoRef.current;
     if (!v) return;
-    if (isActive) {
-      const p = v.play();
-      if (p && typeof p.catch === 'function') {
-        p.catch((err) => {
-          // eslint-disable-next-line no-console
-          console.log('[pindrapp] play blocked:', err);
-        });
-      }
-    } else {
+    if (!isActive) {
       v.pause();
+      return;
     }
+    const timer = window.setTimeout(() => {
+      const video = nativeVideoRef.current;
+      if (!video || !isActive) return;
+      if (video.readyState >= 2) {
+        video.play().catch((err) => {
+          // eslint-disable-next-line no-console
+          console.log('[pindrapp] autoplay blocked:', err);
+        });
+      } else {
+        const onCanPlay = () => {
+          video.play().catch(() => undefined);
+        };
+        video.addEventListener('canplay', onCanPlay, { once: true });
+      }
+    }, 100);
+    return () => window.clearTimeout(timer);
   }, [isActive]);
 
   // Keep the muted attribute in sync — flipping the mute button at the
@@ -239,6 +251,13 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
             autoPlay={isActive}
             preload="auto"
             onLoadedData={() => setVideoLoaded(true)}
+            onCanPlay={() => {
+              setVideoLoaded(true);
+              const v = nativeVideoRef.current;
+              if (isActive && v && v.paused) {
+                v.play().catch(() => undefined);
+              }
+            }}
             onError={(e) => {
               // eslint-disable-next-line no-console
               console.error('[pindrapp] video error:', e);
