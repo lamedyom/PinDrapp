@@ -47,6 +47,17 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    // Spell out content-hashed filenames so any CDN / proxy that ignores our
+    // no-cache HTML meta still can't serve a stale asset under the same URL.
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]',
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {
