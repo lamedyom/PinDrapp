@@ -3,7 +3,14 @@ import { immer } from 'zustand/middleware/immer';
 import { useMapStore } from './mapStore';
 import { showToast } from './toastStore';
 import { useAuthStore } from './authStore';
-import { savePlaceFor, togglePostLike } from '../lib/supabaseApi';
+import {
+  savePlaceFor,
+  toggleFollow,
+  togglePostHype,
+  togglePostLike,
+  unsavePlaceFor,
+} from '../lib/supabaseApi';
+import { autoPin } from '../lib/autoPin';
 
 export type FeedTab = 'updates' | 'nearby' | 'ai';
 
@@ -23,10 +30,13 @@ export interface FeedPost {
   businessEmoji: string;
   caption: string;
   likeCount: number;
+  hypeCount: number;
   commentCount?: number;
   distanceMiles: number;
   isLiked: boolean;
+  isHyped: boolean;
   isPinned: boolean;
+  isFollowing: boolean;
   /** Feed posts are pure video updates — never carry pricing/deals. */
   postCategory?: FeedCategory;
   createdAt: Date;
@@ -49,7 +59,9 @@ interface FeedState {
   isMuted: boolean;
 
   likePost: (id: string) => void;
+  hypePost: (id: string) => void;
   pinPost: (id: string) => void;
+  followFromPost: (id: string) => void;
   setTab: (tab: FeedTab) => void;
   prependPost: (post: FeedPost) => void;
   removePost: (id: string) => void;
@@ -86,7 +98,8 @@ export const useFeedStore = create<FeedState>()(
           ? post.likeCount + 1
           : Math.max(0, post.likeCount - 1);
       });
-      void togglePostLike(auth.profile.id, id, nextLiked).catch(() => {
+      const userId = auth.profile.id;
+      void togglePostLike(userId, id, nextLiked).catch(() => {
         // Revert the optimistic update; the row never landed.
         set((s) => {
           const post = s.posts.find((p) => p.id === id);
@@ -98,48 +111,134 @@ export const useFeedStore = create<FeedState>()(
         });
         showToast('Could not save like. Try again.');
       });
+      // Liking a post auto-pins the business to the user's map. Side-effect;
+      // we don't block on it or surface a toast.
+      if (nextLiked && pre.businessId) void autoPin(pre.businessId, userId);
+    },
+
+    hypePost: (id) => {
+      const auth = useAuthStore.getState();
+      if (!auth.profile) {
+        auth.showGuestPrompt('hype');
+        return;
+      }
+      const pre = get().posts.find((p) => p.id === id);
+      if (!pre) return;
+      const nextHyped = !pre.isHyped;
+      set((s) => {
+        const post = s.posts.find((p) => p.id === id);
+        if (!post) return;
+        post.isHyped = nextHyped;
+        post.hypeCount = nextHyped
+          ? post.hypeCount + 1
+          : Math.max(0, post.hypeCount - 1);
+      });
+      const userId = auth.profile.id;
+      void togglePostHype(userId, id, nextHyped).catch(() => {
+        set((s) => {
+          const post = s.posts.find((p) => p.id === id);
+          if (!post) return;
+          post.isHyped = !nextHyped;
+          post.hypeCount = nextHyped
+            ? Math.max(0, post.hypeCount - 1)
+            : post.hypeCount + 1;
+        });
+        showToast('Could not save hype. Try again.');
+      });
+      // Hype = public recommendation; auto-pin so the user's map grows along
+      // with what they recommend to others.
+      if (nextHyped && pre.businessId) void autoPin(pre.businessId, userId);
     },
 
     pinPost: (id) => {
       const auth = useAuthStore.getState();
       const post = get().posts.find((p) => p.id === id);
-      if (!post || post.isPinned) return;
+      if (!post) return;
       if (!auth.profile) {
         auth.showGuestPrompt('save');
         return;
       }
       if (!post.businessId) return; // we need a real business to save
 
-      // Optimistic UI first.
+      const wasPinned = post.isPinned;
+      const userId = auth.profile.id;
+
+      // Optimistic toggle first.
       set((s) => {
         const p = s.posts.find((x) => x.id === id);
-        if (p) p.isPinned = true;
+        if (p) p.isPinned = !wasPinned;
       });
-      // Drop a local pin when we have coordinates — no city fallbacks.
-      if (post.lat != null && post.lng != null) {
-        useMapStore.getState().addSavedPlace({
-          id: `feed_${post.id}`,
-          name: post.businessName,
-          emoji: post.businessEmoji,
-          type: 'social',
-          category: post.businessCategory.toLowerCase(),
-          hasDeal: false,
-          businessId: post.businessId,
-          lat: post.lat,
-          lng: post.lng,
+
+      if (wasPinned) {
+        // UNPIN — drop the local pin and delete the saved_places row.
+        useMapStore.getState().removeSavedPlace(`feed_${post.id}`);
+        useMapStore.getState().removeSavedPlace(post.businessId);
+        showToast('Removed from your map');
+        void unsavePlaceFor(userId, post.businessId).catch(() => {
+          // Restore optimistic state on failure.
+          set((s) => {
+            const p = s.posts.find((x) => x.id === id);
+            if (p) p.isPinned = true;
+          });
+          showToast('Could not remove. Try again.');
+        });
+      } else {
+        // PIN — add a local pin (if we have coords) and write the row.
+        if (post.lat != null && post.lng != null) {
+          useMapStore.getState().addSavedPlace({
+            id: `feed_${post.id}`,
+            name: post.businessName,
+            emoji: post.businessEmoji,
+            type: 'social',
+            category: post.businessCategory.toLowerCase(),
+            hasDeal: false,
+            businessId: post.businessId,
+            lat: post.lat,
+            lng: post.lng,
+          });
+        }
+        showToast(`${post.businessName} saved to your map 📍`);
+        void savePlaceFor(userId, post.businessId).catch(() => {
+          set((s) => {
+            const p = s.posts.find((x) => x.id === id);
+            if (p) p.isPinned = false;
+          });
+          useMapStore.getState().removeSavedPlace(`feed_${post.id}`);
+          showToast('Could not save. Try again.');
         });
       }
-      showToast(`${post.businessName} saved to your map 📍`);
+    },
 
-      // Persist; if the row never lands, revert the optimistic state.
-      void savePlaceFor(auth.profile.id, post.businessId).catch(() => {
-        set((s) => {
-          const p = s.posts.find((x) => x.id === id);
-          if (p) p.isPinned = false;
-        });
-        useMapStore.getState().removeSavedPlace(`feed_${post.id}`);
-        showToast('Could not save. Try again.');
+    followFromPost: (id) => {
+      const auth = useAuthStore.getState();
+      const post = get().posts.find((p) => p.id === id);
+      if (!post || !post.businessId) return;
+      if (!auth.profile) {
+        auth.showGuestPrompt('follow');
+        return;
+      }
+      const wasFollowing = post.isFollowing;
+      const userId = auth.profile.id;
+      // Mirror the new follow state across every card belonging to this
+      // business — that's the whole point of follow being per-business, not
+      // per-post.
+      set((s) => {
+        for (const p of s.posts) {
+          if (p.businessId === post.businessId) p.isFollowing = !wasFollowing;
+        }
       });
+      showToast(wasFollowing ? `Unfollowed ${post.businessName}` : `Following ${post.businessName}`);
+      void toggleFollow(userId, post.businessId, !wasFollowing).catch(() => {
+        // Revert across the same set.
+        set((s) => {
+          for (const p of s.posts) {
+            if (p.businessId === post.businessId) p.isFollowing = wasFollowing;
+          }
+        });
+        showToast('Could not update follow. Try again.');
+      });
+      // Auto-pin the business when the user starts following.
+      if (!wasFollowing) void autoPin(post.businessId, userId);
     },
 
     setTab: (tab) =>

@@ -78,7 +78,7 @@ export function useBootstrap(): void {
 
     const loadDeals = async () => {
       try {
-        const deals = await withTimeout(fetchDeals(near), 'deals');
+        const deals = await withTimeout(fetchDeals(near, userId), 'deals');
         if (!cancelled) useDealStore.getState().hydrate(deals);
       } catch (e) {
         if (!cancelled) {
@@ -161,7 +161,18 @@ export function useBootstrap(): void {
           if (row?.is_active) showToast('⚡ New deal from a business near you!');
         },
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, refetchFeed)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
+        refetchFeed();
+        refetchDeals();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hypes' }, () => {
+        refetchFeed();
+        refetchDeals();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'followers' }, () => {
+        refetchFeed();
+        refetchDeals();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_places' }, refetchMap)
       .subscribe();
 

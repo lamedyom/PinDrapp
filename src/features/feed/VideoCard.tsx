@@ -4,9 +4,12 @@ import {
   ChevronDown,
   Heart,
   MapPin,
+  Megaphone,
   MoreHorizontal,
   Share2,
   Trash2,
+  UserCheck,
+  UserPlus,
   Volume2,
   VolumeX,
 } from 'lucide-react';
@@ -33,7 +36,9 @@ interface VideoCardProps {
 export function VideoCard({ post, isActive }: VideoCardProps) {
   const navigate = useNavigate();
   const likePost = useFeedStore((s) => s.likePost);
+  const hypePost = useFeedStore((s) => s.hypePost);
   const pinPost = useFeedStore((s) => s.pinPost);
+  const followFromPost = useFeedStore((s) => s.followFromPost);
   const removePost = useFeedStore((s) => s.removePost);
   const isMuted = useFeedStore((s) => s.isMuted);
   const toggleMute = useFeedStore((s) => s.toggleMute);
@@ -41,6 +46,7 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
   const isMine = !!authBusiness && authBusiness.id === post.businessId;
 
   const [likeBurst, setLikeBurst] = useState(0);
+  const [hypeBurst, setHypeBurst] = useState(0);
   const [doubleTapHeart, setDoubleTapHeart] = useState<{ x: number; y: number; key: number } | null>(null);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,9 +64,20 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
     setLikeBurst((n) => n + 1);
   };
 
+  const handleHype = () => {
+    tapHaptic();
+    hypePost(post.id);
+    setHypeBurst((n) => n + 1);
+  };
+
   const handleSave = () => {
     tapHaptic();
     pinPost(post.id);
+  };
+
+  const handleFollow = () => {
+    tapHaptic();
+    followFromPost(post.id);
   };
 
   const handleShare = () => {
@@ -252,16 +269,52 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
         <button
           type="button"
           className={styles.actionBtn}
+          onClick={handleHype}
+          aria-label={post.isHyped ? 'Unhype' : 'Hype'}
+        >
+          <motion.span
+            key={hypeBurst}
+            animate={{ scale: [1, 1.35, 1] }}
+            transition={{ duration: 0.28 }}
+            className={styles.actionIcon}
+          >
+            <Megaphone
+              size={30}
+              fill={post.isHyped ? '#FF5C1A' : 'transparent'}
+              stroke={post.isHyped ? '#FF5C1A' : '#fff'}
+              strokeWidth={1.6}
+            />
+          </motion.span>
+          <span className={styles.actionLabel}>
+            {post.hypeCount > 0 ? post.hypeCount : 'Hype'}
+          </span>
+        </button>
+        <button
+          type="button"
+          className={styles.actionBtn}
           onClick={handleSave}
-          aria-label={post.isPinned ? 'Saved' : 'Save to map'}
+          aria-label={post.isPinned ? 'Remove from your map' : 'Save to map'}
         >
           <MapPin
             size={30}
             fill={post.isPinned ? '#1A3AFF' : 'transparent'}
-            stroke="#fff"
+            stroke={post.isPinned ? '#1A3AFF' : '#fff'}
             strokeWidth={1.6}
           />
           <span className={styles.actionLabel}>{post.isPinned ? 'Saved' : 'Save'}</span>
+        </button>
+        <button
+          type="button"
+          className={styles.actionBtn}
+          onClick={handleFollow}
+          aria-label={post.isFollowing ? 'Unfollow' : `Follow ${post.businessName}`}
+        >
+          {post.isFollowing ? (
+            <UserCheck size={30} stroke="#00D97E" strokeWidth={1.8} />
+          ) : (
+            <UserPlus size={30} stroke="#fff" strokeWidth={1.6} />
+          )}
+          <span className={styles.actionLabel}>{post.isFollowing ? 'Following' : 'Follow'}</span>
         </button>
         <button
           type="button"

@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { animate, motion, useMotionValue } from 'framer-motion';
 import { useMapStore, type SavedPlace, type ExploreBusiness } from '../../stores/mapStore';
+import { useAuthStore } from '../../stores/authStore';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { tapHaptic } from '../../lib/haptics';
-import { MapPin as MapPinIcon, Search } from 'lucide-react';
+import { unsavePlaceFor } from '../../lib/supabaseApi';
+import { showToast } from '../../stores/toastStore';
+import { MapPin as MapPinIcon, Search, X } from 'lucide-react';
 import styles from './MapBottomSheet.module.css';
 
 const COLLAPSED = 110;
@@ -173,11 +177,37 @@ function MyPlacesContent({
   places: SavedPlace[];
   onTap: (id: string) => void;
 }) {
+  const [confirmRemove, setConfirmRemove] = useState<SavedPlace | null>(null);
+  const removeSavedPlace = useMapStore((s) => s.removeSavedPlace);
+  const profileId = useAuthStore((s) => s.profile?.id);
+
+  const doRemove = async () => {
+    if (!confirmRemove) return;
+    const place = confirmRemove;
+    setConfirmRemove(null);
+    // Optimistically drop the local pin + card. Restore on failure.
+    removeSavedPlace(place.id);
+    showToast('Removed from your map');
+    if (profileId && place.businessId) {
+      try {
+        await unsavePlaceFor(profileId, place.businessId);
+      } catch {
+        useMapStore.getState().addSavedPlace(place);
+        showToast('Could not remove. Try again.');
+      }
+    }
+  };
+
   return (
     <>
       <div className={`${styles.scrollRow} no-scrollbar`}>
         {places.map((p) => (
-          <SavedPlaceCard key={p.id} place={p} onTap={() => onTap(p.id)} />
+          <SavedPlaceCard
+            key={p.id}
+            place={p}
+            onTap={() => onTap(p.id)}
+            onRemove={() => setConfirmRemove(p)}
+          />
         ))}
       </div>
       <div className={styles.legend}>
@@ -191,6 +221,14 @@ function MyPlacesContent({
           <span className={`${styles.legendDot} ${styles.legendDotGreen}`} /> Deal active
         </div>
       </div>
+      <ConfirmDialog
+        open={!!confirmRemove}
+        title={`Remove ${confirmRemove?.name ?? ''} from your map?`}
+        body="You can save it again any time from the feed or a profile."
+        confirmLabel="Remove"
+        onConfirm={() => void doRemove()}
+        onCancel={() => setConfirmRemove(null)}
+      />
     </>
   );
 }
@@ -217,7 +255,15 @@ function ExploreContent({
   );
 }
 
-function SavedPlaceCard({ place, onTap }: { place: SavedPlace; onTap: () => void }) {
+function SavedPlaceCard({
+  place,
+  onTap,
+  onRemove,
+}: {
+  place: SavedPlace;
+  onTap: () => void;
+  onRemove: () => void;
+}) {
   const gradient =
     place.type === 'home'
       ? 'linear-gradient(135deg,#1a1000,#2a1a00)'
@@ -245,18 +291,46 @@ function SavedPlaceCard({ place, onTap }: { place: SavedPlace; onTap: () => void
         : '';
 
   return (
-    <button type="button" className={styles.savedCard} onClick={onTap} style={{ background: 'var(--bg-card)' }}>
-      <div className={styles.savedCardTop} style={{ background: gradient }}>
-        <span>{place.emoji}</span>
-        <div className={styles.savedBadge}>
-          <Badge tone={badgeTone}>{badgeLabel}</Badge>
+    <div className={styles.savedCard} style={{ background: 'var(--bg-card)' }}>
+      {/* Home/Work pins are special — we don't unpin those from the sheet. */}
+      {place.type !== 'home' && place.type !== 'work' && (
+        <button
+          type="button"
+          className={styles.unpinBtn}
+          aria-label={`Remove ${place.name} from your map`}
+          onClick={(e) => {
+            e.stopPropagation();
+            tapHaptic();
+            onRemove();
+          }}
+        >
+          <X size={12} />
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onTap}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'transparent',
+          width: '100%',
+          textAlign: 'left',
+          padding: 0,
+        }}
+      >
+        <div className={styles.savedCardTop} style={{ background: gradient }}>
+          <span>{place.emoji}</span>
+          <div className={styles.savedBadge}>
+            <Badge tone={badgeTone}>{badgeLabel}</Badge>
+          </div>
         </div>
-      </div>
-      <div className={styles.savedCardBody}>
-        <div className={styles.savedName}>{place.name}</div>
-        <div className={styles.savedMeta}>{meta}</div>
-      </div>
-    </button>
+        <div className={styles.savedCardBody}>
+          <div className={styles.savedName}>{place.name}</div>
+          <div className={styles.savedMeta}>{meta}</div>
+        </div>
+      </button>
+    </div>
   );
 }
 

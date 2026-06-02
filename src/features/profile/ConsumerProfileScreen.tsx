@@ -1,20 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, LogOut, MapPin } from 'lucide-react';
+import { Camera, LogOut, MapPin, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import type { SavedPlace } from '../../stores/mapStore';
+import { useMapStore } from '../../stores/mapStore';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import {
   fetchFollowing,
   fetchSavedPlaces,
   fetchUserClaimedDeals,
+  unsavePlaceFor,
   uploadImage,
   type ClaimedDealRecord,
   type FollowedBusiness,
 } from '../../lib/supabaseApi';
 import { showToast } from '../../stores/toastStore';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Modal } from '../../components/ui/Modal';
+import { tapHaptic } from '../../lib/haptics';
 import styles from './ConsumerProfileScreen.module.css';
 
 export function ConsumerProfileScreen() {
@@ -26,6 +30,7 @@ export function ConsumerProfileScreen() {
   const [following, setFollowing] = useState<FollowedBusiness[]>([]);
   const [claimed, setClaimed] = useState<ClaimedDealRecord[]>([]);
   const [editOpen, setEditOpen] = useState(false);
+  const [confirmUnpin, setConfirmUnpin] = useState<SavedPlace | null>(null);
 
   const name = profile?.name?.trim() || 'Your Profile';
   const avatarUrl = profile?.avatarUrl ?? null;
@@ -65,6 +70,25 @@ export function ConsumerProfileScreen() {
 
   const goToBusiness = (businessId?: string) => {
     if (businessId) navigate(`/profile/${businessId}`);
+  };
+
+  const handleUnpin = async () => {
+    if (!confirmUnpin || !profile?.id) return;
+    const place = confirmUnpin;
+    setConfirmUnpin(null);
+    // Optimistic local removal — restore on failure.
+    setSaved((s) => s.filter((p) => p.id !== place.id));
+    useMapStore.getState().removeSavedPlace(place.id);
+    showToast('Removed from your map');
+    if (place.businessId) {
+      try {
+        await unsavePlaceFor(profile.id, place.businessId);
+      } catch {
+        setSaved((s) => [place, ...s]);
+        useMapStore.getState().addSavedPlace(place);
+        showToast('Could not remove. Try again.');
+      }
+    }
   };
 
   return (
@@ -123,16 +147,37 @@ export function ConsumerProfileScreen() {
         ) : (
           <div className={`${styles.savedRow} no-scrollbar`}>
             {saved.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className={styles.savedCard}
-                onClick={() => goToBusiness(p.businessId)}
-              >
-                <div className={styles.savedEmoji}>{p.emoji}</div>
-                <div className={styles.savedName}>{p.name}</div>
-                <div className={styles.savedCat}>{p.category ?? ''}</div>
-              </button>
+              <div key={p.id} className={styles.savedCard}>
+                {p.type !== 'home' && p.type !== 'work' && (
+                  <button
+                    type="button"
+                    className={styles.savedUnpin}
+                    aria-label={`Remove ${p.name} from your map`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      tapHaptic();
+                      setConfirmUnpin(p);
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => goToBusiness(p.businessId)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    width: '100%',
+                    padding: 0,
+                    textAlign: 'left',
+                  }}
+                >
+                  <div className={styles.savedEmoji}>{p.emoji}</div>
+                  <div className={styles.savedName}>{p.name}</div>
+                  <div className={styles.savedCat}>{p.category ?? ''}</div>
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -192,6 +237,15 @@ export function ConsumerProfileScreen() {
       </section>
 
       <ConsumerEditModal open={editOpen} onClose={() => setEditOpen(false)} />
+
+      <ConfirmDialog
+        open={!!confirmUnpin}
+        title={`Remove ${confirmUnpin?.name ?? ''} from your map?`}
+        body="You can save it again any time from the feed or a profile."
+        confirmLabel="Remove"
+        onConfirm={() => void handleUnpin()}
+        onCancel={() => setConfirmUnpin(null)}
+      />
     </div>
   );
 }

@@ -255,3 +255,38 @@
   font-size: 9px;
   color: rgba(26, 58, 255, 0.8);
 }
+
+.socialRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.socialBtn {
+  flex: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: transparent;
+  border: none;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: color 120ms ease, transform 120ms ease;
+}
+
+.socialBtn:active {
+  transform: scale(0.95);
+}
+
+.socialBtnActive {
+  color: var(--text-primary);
+}

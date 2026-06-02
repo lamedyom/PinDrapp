@@ -2,7 +2,15 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { useMapStore } from './mapStore';
 import { useAuthStore } from './authStore';
-import { recordDealClaim, savePlaceFor } from '../lib/supabaseApi';
+import {
+  recordDealClaim,
+  savePlaceFor,
+  toggleDealHype,
+  toggleDealLike,
+  toggleFollow,
+  unsavePlaceFor,
+} from '../lib/supabaseApi';
+import { autoPin } from '../lib/autoPin';
 import { showToast } from './toastStore';
 
 export type DealCategory =
@@ -42,6 +50,13 @@ export interface Deal {
   claimCount?: number;
   lat?: number;
   lng?: number;
+  /** Per-user social state — populated when fetched with forUserId. */
+  isLiked?: boolean;
+  likeCount?: number;
+  isHyped?: boolean;
+  hypeCount?: number;
+  isFollowing?: boolean;
+  isPinned?: boolean;
 }
 
 export type CheckoutStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -67,6 +82,12 @@ interface DealState {
   removeDeal: (id: string) => void;
   resetCheckout: () => void;
   hydrate: (deals: Deal[]) => void;
+  /** Social toggles for the deal card action row. All four auto-pin the
+   *  business when activated, and surface the guest prompt for visitors. */
+  likeDeal: (id: string) => void;
+  hypeDeal: (id: string) => void;
+  followDealBusiness: (id: string) => void;
+  pinDealBusiness: (id: string) => void;
 }
 
 export const useDealStore = create<DealState>()(
@@ -200,5 +221,150 @@ export const useDealStore = create<DealState>()(
         s.hydrated = true;
         s.loading = false;
       }),
+
+    likeDeal: (id) => {
+      const auth = useAuthStore.getState();
+      if (!auth.profile) {
+        auth.showGuestPrompt('like');
+        return;
+      }
+      const pre = get().deals.find((d) => d.id === id);
+      if (!pre) return;
+      const next = !(pre.isLiked ?? false);
+      set((s) => {
+        const d = s.deals.find((x) => x.id === id);
+        if (!d) return;
+        d.isLiked = next;
+        d.likeCount = next
+          ? (d.likeCount ?? 0) + 1
+          : Math.max(0, (d.likeCount ?? 0) - 1);
+      });
+      const userId = auth.profile.id;
+      void toggleDealLike(userId, id, next).catch(() => {
+        set((s) => {
+          const d = s.deals.find((x) => x.id === id);
+          if (!d) return;
+          d.isLiked = !next;
+          d.likeCount = next
+            ? Math.max(0, (d.likeCount ?? 0) - 1)
+            : (d.likeCount ?? 0) + 1;
+        });
+        showToast('Could not save like. Try again.');
+      });
+      if (next && pre.businessId) void autoPin(pre.businessId, userId);
+    },
+
+    hypeDeal: (id) => {
+      const auth = useAuthStore.getState();
+      if (!auth.profile) {
+        auth.showGuestPrompt('hype');
+        return;
+      }
+      const pre = get().deals.find((d) => d.id === id);
+      if (!pre) return;
+      const next = !(pre.isHyped ?? false);
+      set((s) => {
+        const d = s.deals.find((x) => x.id === id);
+        if (!d) return;
+        d.isHyped = next;
+        d.hypeCount = next
+          ? (d.hypeCount ?? 0) + 1
+          : Math.max(0, (d.hypeCount ?? 0) - 1);
+      });
+      const userId = auth.profile.id;
+      void toggleDealHype(userId, id, next).catch(() => {
+        set((s) => {
+          const d = s.deals.find((x) => x.id === id);
+          if (!d) return;
+          d.isHyped = !next;
+          d.hypeCount = next
+            ? Math.max(0, (d.hypeCount ?? 0) - 1)
+            : (d.hypeCount ?? 0) + 1;
+        });
+        showToast('Could not save hype. Try again.');
+      });
+      if (next && pre.businessId) void autoPin(pre.businessId, userId);
+    },
+
+    followDealBusiness: (id) => {
+      const auth = useAuthStore.getState();
+      const deal = get().deals.find((d) => d.id === id);
+      if (!deal || !deal.businessId) return;
+      if (!auth.profile) {
+        auth.showGuestPrompt('follow');
+        return;
+      }
+      const wasFollowing = deal.isFollowing ?? false;
+      const userId = auth.profile.id;
+      set((s) => {
+        for (const d of s.deals) {
+          if (d.businessId === deal.businessId) d.isFollowing = !wasFollowing;
+        }
+      });
+      showToast(wasFollowing ? `Unfollowed ${deal.businessName}` : `Following ${deal.businessName}`);
+      void toggleFollow(userId, deal.businessId, !wasFollowing).catch(() => {
+        set((s) => {
+          for (const d of s.deals) {
+            if (d.businessId === deal.businessId) d.isFollowing = wasFollowing;
+          }
+        });
+        showToast('Could not update follow. Try again.');
+      });
+      if (!wasFollowing) void autoPin(deal.businessId, userId);
+    },
+
+    pinDealBusiness: (id) => {
+      const auth = useAuthStore.getState();
+      const deal = get().deals.find((d) => d.id === id);
+      if (!deal || !deal.businessId) return;
+      if (!auth.profile) {
+        auth.showGuestPrompt('save');
+        return;
+      }
+      const wasPinned = deal.isPinned ?? false;
+      const userId = auth.profile.id;
+      set((s) => {
+        for (const d of s.deals) {
+          if (d.businessId === deal.businessId) d.isPinned = !wasPinned;
+        }
+      });
+      if (wasPinned) {
+        useMapStore.getState().removeSavedPlace(`deal_${deal.id}`);
+        useMapStore.getState().removeSavedPlace(deal.businessId);
+        showToast('Removed from your map');
+        void unsavePlaceFor(userId, deal.businessId).catch(() => {
+          set((s) => {
+            for (const d of s.deals) {
+              if (d.businessId === deal.businessId) d.isPinned = true;
+            }
+          });
+          showToast('Could not remove. Try again.');
+        });
+      } else {
+        if (deal.lat != null && deal.lng != null) {
+          useMapStore.getState().addSavedPlace({
+            id: `deal_${deal.id}`,
+            name: deal.businessName,
+            emoji: deal.emoji,
+            type: 'social',
+            category: deal.category.toLowerCase(),
+            hasDeal: true,
+            businessId: deal.businessId,
+            lat: deal.lat,
+            lng: deal.lng,
+          });
+        }
+        showToast(`${deal.businessName} saved to your map 📍`);
+        void savePlaceFor(userId, deal.businessId).catch(() => {
+          set((s) => {
+            for (const d of s.deals) {
+              if (d.businessId === deal.businessId) d.isPinned = false;
+            }
+          });
+          useMapStore.getState().removeSavedPlace(`deal_${deal.id}`);
+          showToast('Could not save. Try again.');
+        });
+      }
+    },
   })),
 );

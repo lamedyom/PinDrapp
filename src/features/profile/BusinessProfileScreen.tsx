@@ -25,6 +25,7 @@ import { useDirectionsStore } from '../../stores/directionsStore';
 import { useUserStore } from '../../stores/userStore';
 import { useCountdown } from '../../hooks/useCountdown';
 import { isSupabaseConfigured } from '../../lib/supabase';
+import { autoPin } from '../../lib/autoPin';
 import { shareContent } from '../../lib/share';
 import {
   deleteDeal,
@@ -149,6 +150,13 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
       apply(ownerFallback());
     }
 
+    // Auto-pin: visiting a business profile while signed in (and not
+    // browsing your own) silently adds it to your personal map. Side-effect
+    // only — the fetch above does its own thing.
+    if (profileId && businessId && businessId !== authBusiness?.id) {
+      void autoPin(businessId, profileId);
+    }
+
     return () => {
       cancelled = true;
     };
@@ -167,6 +175,8 @@ export function BusinessProfileScreen({ businessId: businessIdProp }: BusinessPr
     setFollowerCount((c) => Math.max(0, c + (next ? 1 : -1)));
     try {
       await toggleFollow(profileId, businessId, next);
+      // Auto-pin on follow — matches the feed/deal behavior.
+      if (next) void autoPin(businessId, profileId);
     } catch {
       setFollowing(!next);
       setFollowerCount((c) => Math.max(0, c + (next ? -1 : 1)));

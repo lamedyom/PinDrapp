@@ -220,6 +220,110 @@ create trigger followers_count_trigger
   for each row execute function public.bump_follower_count();
 
 -- ============================================================================
+-- hypes (a consumer publicly recommending a post or deal — "I recommend this")
+-- ============================================================================
+-- One row per (user, post) or (user, deal). Exactly one of post_id / deal_id
+-- is set; the other stays NULL. Mirrors the like/unlike model.
+create table if not exists public.hypes (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references public.users(id) on delete cascade,
+  post_id    uuid references public.posts(id) on delete cascade,
+  deal_id    uuid references public.deals(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  check ((post_id is not null and deal_id is null) or (post_id is null and deal_id is not null))
+);
+
+create unique index if not exists hypes_user_post_uidx
+  on public.hypes(user_id, post_id) where post_id is not null;
+create unique index if not exists hypes_user_deal_uidx
+  on public.hypes(user_id, deal_id) where deal_id is not null;
+create index if not exists hypes_post_idx on public.hypes(post_id);
+create index if not exists hypes_deal_idx on public.hypes(deal_id);
+
+-- Posts get a denormalized hype_count column so the feed query stays a single
+-- read. Trigger below keeps it in sync.
+alter table public.posts
+  add column if not exists hype_count int not null default 0;
+
+-- Likes get a nullable deal_id (we already use post_id for post likes). The
+-- existing post_id NOT NULL constraint is relaxed so a row can carry one or
+-- the other. Same shape as `hypes`.
+alter table public.likes
+  alter column post_id drop not null;
+alter table public.likes
+  add column if not exists deal_id uuid references public.deals(id) on delete cascade;
+
+-- The original (user_id, post_id) UNIQUE constraint can stay — it permits
+-- one row per (user, post) and any number of NULL post_id rows alongside.
+-- Add a parallel unique for (user, deal).
+create unique index if not exists likes_user_deal_uidx
+  on public.likes(user_id, deal_id) where deal_id is not null;
+create index if not exists likes_deal_idx on public.likes(deal_id);
+
+-- Keep posts.hype_count in sync with the hypes table. SECURITY DEFINER so a
+-- consumer hyping any post can bump the count on a post they don't own.
+create or replace function public.bump_hype_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (tg_op = 'INSERT') then
+    if (new.post_id is not null) then
+      update public.posts set hype_count = hype_count + 1 where id = new.post_id;
+    end if;
+    return new;
+  elsif (tg_op = 'DELETE') then
+    if (old.post_id is not null) then
+      update public.posts set hype_count = greatest(0, hype_count - 1) where id = old.post_id;
+    end if;
+    return old;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists hypes_count_trigger on public.hypes;
+create trigger hypes_count_trigger
+  after insert or delete on public.hypes
+  for each row execute function public.bump_hype_count();
+
+-- Standalone RPC helpers (the trigger above keeps the counter in sync for the
+-- common case; these RPCs are documented in the social-actions spec so the
+-- client can call them explicitly when needed).
+create or replace function public.increment_post_hypes(post_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.posts set hype_count = hype_count + 1 where id = post_id;
+$$;
+
+create or replace function public.decrement_post_hypes(post_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.posts set hype_count = greatest(0, hype_count - 1) where id = post_id;
+$$;
+
+alter table public.hypes enable row level security;
+
+drop policy if exists hypes_read on public.hypes;
+create policy hypes_read on public.hypes for select using (true);
+
+drop policy if exists hypes_self_write on public.hypes;
+create policy hypes_self_write on public.hypes
+  for insert with check (user_id in (select id from public.users where auth_id = auth.uid()));
+
+drop policy if exists hypes_self_delete on public.hypes;
+create policy hypes_self_delete on public.hypes
+  for delete using (user_id in (select id from public.users where auth_id = auth.uid()));
+
+-- ============================================================================
 -- catalog_items (a business's product/service menu — shown only in-profile)
 -- ============================================================================
 create table if not exists public.catalog_items (
@@ -541,6 +645,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'deal_claims'
   ) then
     alter publication supabase_realtime add table public.deal_claims;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'hypes'
+  ) then
+    alter publication supabase_realtime add table public.hypes;
   end if;
 end $$;
 

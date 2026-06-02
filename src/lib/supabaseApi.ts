@@ -38,6 +38,7 @@ interface PostRow {
   video_url: string | null;
   thumbnail_url: string | null;
   like_count: number;
+  hype_count: number | null;
   post_type: string | null;
   post_category: string | null;
   created_at: string;
@@ -144,11 +145,17 @@ export async function fetchFeed(
     .limit(50);
   if (error || !data) return [];
 
-  // Pull the user's likes and pinned businesses for badges.
-  const likedPostIds = forUserId ? await fetchUserLikedPostIds(forUserId) : new Set<string>();
-  const pinnedBusinessIds = forUserId
-    ? await fetchUserSavedBusinessIds(forUserId)
-    : new Set<string>();
+  // Per-user badge state: which posts I liked / hyped, which businesses I
+  // already saved and which ones I follow. Six small reads in parallel —
+  // cheaper than one giant join.
+  const [likedPostIds, hypedPostIds, pinnedBusinessIds, followedBusinessIds] = forUserId
+    ? await Promise.all([
+        fetchUserLikedPostIds(forUserId),
+        fetchUserHypedPostIds(forUserId),
+        fetchUserSavedBusinessIds(forUserId),
+        fetchUserFollowingBusinessIds(forUserId),
+      ])
+    : [new Set<string>(), new Set<string>(), new Set<string>(), new Set<string>()];
 
   return (data as PostRow[]).map((row) => {
     const biz = relOne(row.business);
@@ -160,13 +167,16 @@ export async function fetchFeed(
       businessEmoji: emojiForCategory(biz?.category ?? ''),
       caption: row.caption,
       likeCount: row.like_count,
+      hypeCount: row.hype_count ?? 0,
       commentCount: 0,
       distanceMiles: distanceMiFrom(near ?? null, {
         lat: biz?.lat ?? null,
         lng: biz?.lng ?? null,
       }),
       isLiked: likedPostIds.has(row.id),
+      isHyped: hypedPostIds.has(row.id),
       isPinned: biz ? pinnedBusinessIds.has(biz.id) : false,
+      isFollowing: biz ? followedBusinessIds.has(biz.id) : false,
       isPro: !!biz?.is_pro,
       postCategory: (row.post_category as FeedPost['postCategory']) ?? 'update',
       createdAt: new Date(row.created_at),
@@ -180,7 +190,11 @@ export async function fetchFeed(
 
 async function fetchUserLikedPostIds(userId: string): Promise<Set<string>> {
   if (!supabase) return new Set();
-  const { data } = await supabase.from('likes').select('post_id').eq('user_id', userId);
+  const { data } = await supabase
+    .from('likes')
+    .select('post_id')
+    .eq('user_id', userId)
+    .not('post_id', 'is', null);
   return new Set((data ?? []).map((r: { post_id: string }) => r.post_id));
 }
 
@@ -193,12 +207,52 @@ async function fetchUserSavedBusinessIds(userId: string): Promise<Set<string>> {
   return new Set((data ?? []).map((r: { business_id: string }) => r.business_id));
 }
 
+async function fetchUserHypedPostIds(userId: string): Promise<Set<string>> {
+  if (!supabase) return new Set();
+  const { data } = await supabase
+    .from('hypes')
+    .select('post_id')
+    .eq('user_id', userId)
+    .not('post_id', 'is', null);
+  return new Set((data ?? []).map((r: { post_id: string }) => r.post_id));
+}
+
+async function fetchUserHypedDealIds(userId: string): Promise<Set<string>> {
+  if (!supabase) return new Set();
+  const { data } = await supabase
+    .from('hypes')
+    .select('deal_id')
+    .eq('user_id', userId)
+    .not('deal_id', 'is', null);
+  return new Set((data ?? []).map((r: { deal_id: string }) => r.deal_id));
+}
+
+async function fetchUserLikedDealIds(userId: string): Promise<Set<string>> {
+  if (!supabase) return new Set();
+  const { data } = await supabase
+    .from('likes')
+    .select('deal_id')
+    .eq('user_id', userId)
+    .not('deal_id', 'is', null);
+  return new Set((data ?? []).map((r: { deal_id: string }) => r.deal_id));
+}
+
+async function fetchUserFollowingBusinessIds(userId: string): Promise<Set<string>> {
+  if (!supabase) return new Set();
+  const { data } = await supabase
+    .from('followers')
+    .select('business_id')
+    .eq('follower_id', userId);
+  return new Set((data ?? []).map((r: { business_id: string }) => r.business_id));
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 // DEALS
 // ───────────────────────────────────────────────────────────────────────────
 
 export async function fetchDeals(
   near?: { lat: number; lng: number } | null,
+  forUserId?: string,
 ): Promise<Deal[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -208,6 +262,17 @@ export async function fetchDeals(
     .order('created_at', { ascending: false })
     .limit(50);
   if (error || !data) return [];
+
+  // Per-user social state for each deal — same shape as fetchFeed.
+  const [likedDealIds, hypedDealIds, pinnedBusinessIds, followedBusinessIds] = forUserId
+    ? await Promise.all([
+        fetchUserLikedDealIds(forUserId),
+        fetchUserHypedDealIds(forUserId),
+        fetchUserSavedBusinessIds(forUserId),
+        fetchUserFollowingBusinessIds(forUserId),
+      ])
+    : [new Set<string>(), new Set<string>(), new Set<string>(), new Set<string>()];
+
   return (data as DealRow[]).map((row, i) => {
     const biz = relOne(row.business);
     return {
@@ -236,6 +301,10 @@ export async function fetchDeals(
       businessId: row.business_id,
       lat: biz?.lat ?? undefined,
       lng: biz?.lng ?? undefined,
+      isLiked: likedDealIds.has(row.id),
+      isHyped: hypedDealIds.has(row.id),
+      isFollowing: biz ? followedBusinessIds.has(biz.id) : false,
+      isPinned: biz ? pinnedBusinessIds.has(biz.id) : false,
     } satisfies Deal;
   });
 }
@@ -583,10 +652,13 @@ export async function fetchBusinessProfile(
     businessEmoji: emojiForCategory(business.category),
     caption: row.caption,
     likeCount: row.like_count,
+    hypeCount: row.hype_count ?? 0,
     commentCount: 0,
     distanceMiles: distanceMiFrom(near ?? null, { lat: business.lat, lng: business.lng }),
     isLiked: false,
+    isHyped: false,
     isPinned: false,
+    isFollowing: false,
     isPro: business.isPro,
     postCategory: (row.post_category as FeedPost['postCategory']) ?? 'update',
     createdAt: new Date(row.created_at),
@@ -812,6 +884,52 @@ export async function togglePostLike(
     );
   } else {
     await supabase.from('likes').delete().eq('user_id', userId).eq('post_id', postId);
+  }
+}
+
+export async function toggleDealLike(
+  userId: string,
+  dealId: string,
+  liked: boolean,
+): Promise<void> {
+  if (!supabase) return;
+  if (liked) {
+    await supabase
+      .from('likes')
+      .upsert({ user_id: userId, deal_id: dealId }, { onConflict: 'user_id,deal_id' });
+  } else {
+    await supabase.from('likes').delete().eq('user_id', userId).eq('deal_id', dealId);
+  }
+}
+
+export async function togglePostHype(
+  userId: string,
+  postId: string,
+  hyped: boolean,
+): Promise<void> {
+  if (!supabase) return;
+  if (hyped) {
+    // Trigger keeps posts.hype_count in sync; no explicit RPC needed here.
+    await supabase
+      .from('hypes')
+      .upsert({ user_id: userId, post_id: postId }, { onConflict: 'user_id,post_id' });
+  } else {
+    await supabase.from('hypes').delete().eq('user_id', userId).eq('post_id', postId);
+  }
+}
+
+export async function toggleDealHype(
+  userId: string,
+  dealId: string,
+  hyped: boolean,
+): Promise<void> {
+  if (!supabase) return;
+  if (hyped) {
+    await supabase
+      .from('hypes')
+      .upsert({ user_id: userId, deal_id: dealId }, { onConflict: 'user_id,deal_id' });
+  } else {
+    await supabase.from('hypes').delete().eq('user_id', userId).eq('deal_id', dealId);
   }
 }
 

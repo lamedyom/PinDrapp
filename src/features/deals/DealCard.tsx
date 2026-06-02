@@ -1,5 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { MapPin, Share2 } from 'lucide-react';
+import {
+  Heart,
+  MapPin,
+  Megaphone,
+  Share2,
+  UserCheck,
+  UserPlus,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Deal } from '../../stores/dealStore';
 import { useDealStore } from '../../stores/dealStore';
@@ -29,6 +36,10 @@ const CATEGORY_GRADIENT: Record<string, string> = {
 
 export function DealCard({ deal, featuredLabel }: DealCardProps) {
   const openCheckout = useDealStore((s) => s.openCheckout);
+  const likeDeal = useDealStore((s) => s.likeDeal);
+  const hypeDeal = useDealStore((s) => s.hypeDeal);
+  const followDealBusiness = useDealStore((s) => s.followDealBusiness);
+  const pinDealBusiness = useDealStore((s) => s.pinDealBusiness);
   const c = useCountdown(deal.expiresAt);
   const urgent = !c.isExpired && c.totalSecondsLeft < 3600;
   const cardRef = useRef<HTMLDivElement>(null);
@@ -148,8 +159,74 @@ export function DealCard({ deal, featuredLabel }: DealCardProps) {
           </div>
         </div>
 
-        <div className={styles.mapRow}>
-          <MapPin size={11} /> Saved to your map automatically
+        <div className={styles.socialRow}>
+          <button
+            type="button"
+            className={`${styles.socialBtn} ${deal.isLiked ? styles.socialBtnActive : ''}`}
+            onClick={() => {
+              tapHaptic();
+              likeDeal(deal.id);
+            }}
+            aria-label={deal.isLiked ? 'Unlike deal' : 'Like deal'}
+          >
+            <Heart
+              size={18}
+              fill={deal.isLiked ? '#FF3A3A' : 'transparent'}
+              stroke={deal.isLiked ? '#FF3A3A' : 'currentColor'}
+              strokeWidth={1.7}
+            />
+            <span>{deal.likeCount ?? 0}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.socialBtn} ${deal.isHyped ? styles.socialBtnActive : ''}`}
+            onClick={() => {
+              tapHaptic();
+              hypeDeal(deal.id);
+            }}
+            aria-label={deal.isHyped ? 'Unhype deal' : 'Hype deal'}
+          >
+            <Megaphone
+              size={18}
+              fill={deal.isHyped ? '#FF5C1A' : 'transparent'}
+              stroke={deal.isHyped ? '#FF5C1A' : 'currentColor'}
+              strokeWidth={1.7}
+            />
+            <span>{deal.hypeCount ?? 0}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.socialBtn} ${deal.isFollowing ? styles.socialBtnActive : ''}`}
+            onClick={() => {
+              tapHaptic();
+              followDealBusiness(deal.id);
+            }}
+            aria-label={deal.isFollowing ? 'Unfollow' : `Follow ${deal.businessName}`}
+          >
+            {deal.isFollowing ? (
+              <UserCheck size={18} stroke="#00D97E" strokeWidth={1.9} />
+            ) : (
+              <UserPlus size={18} stroke="currentColor" strokeWidth={1.7} />
+            )}
+            <span>{deal.isFollowing ? 'Following' : 'Follow'}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.socialBtn} ${deal.isPinned ? styles.socialBtnActive : ''}`}
+            onClick={() => {
+              tapHaptic();
+              pinDealBusiness(deal.id);
+            }}
+            aria-label={deal.isPinned ? 'Remove from map' : 'Save to map'}
+          >
+            <MapPin
+              size={18}
+              fill={deal.isPinned ? '#1A3AFF' : 'transparent'}
+              stroke={deal.isPinned ? '#1A3AFF' : 'currentColor'}
+              strokeWidth={1.7}
+            />
+            <span>{deal.isPinned ? 'Saved' : 'Save'}</span>
+          </button>
         </div>
       </div>
     </motion.div>

@@ -13,6 +13,10 @@ const COPY: Record<GuestPromptType, { title: string; body: string; primaryLabel?
     title: 'Save to your map',
     body: 'Never forget a great business — pin them to your personal map.',
   },
+  hype: {
+    title: 'Hype this business',
+    body: 'Join Pindrapp to hype businesses and help others discover them.',
+  },
   follow: {
     title: 'Follow this business',
     body: 'Get notified the moment they post new updates and deals.',
