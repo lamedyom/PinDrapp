@@ -89,22 +89,46 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
     if (v) v.muted = isMuted;
   }, [isMuted]);
 
-  // iOS Safari pauses background videos when the tab goes hidden. When the
-  // tab comes back we re-issue play() on the active card — without this the
-  // card sometimes stays frozen on the last frame.
+  // Resume video when the user returns to the tab/app. iOS Safari and
+  // Android Chrome both suspend <video> elements when the page is hidden,
+  // and the bfcache restore on iOS fires `pageshow` (not `visibilitychange`).
+  // Cover all three vectors plus a short delay so the browser can finish
+  // its own resume bookkeeping before we call play().
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const onVis = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (!isActive) return;
-      const v = nativeVideoRef.current;
-      if (v) {
-        const p = v.play();
-        if (p && typeof p.catch === 'function') p.catch(() => undefined);
-      }
+    if (!isActive) return;
+    const tryResume = (delay: number) => {
+      window.setTimeout(() => {
+        const v = nativeVideoRef.current;
+        if (!v || !isActive) return;
+        if (v.paused) {
+          const p = v.play();
+          if (p && typeof p.catch === 'function') {
+            p.catch((err) => {
+              // eslint-disable-next-line no-console
+              console.log('[pindrapp] resume play failed:', err);
+            });
+          }
+        }
+      }, delay);
     };
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      tryResume(300);
+    };
+    const handlePageShow = (_e: PageTransitionEvent) => {
+      void _e;
+      tryResume(300);
+    };
+    const handleFocus = () => tryResume(200);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [isActive]);
 
   // Reset caption expansion when the card scrolls out of view.
@@ -209,16 +233,36 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
           <video
             ref={nativeVideoRef}
             src={sourceUrl}
-            loop
+            loop={true}
             muted={isMuted}
             playsInline
             autoPlay={isActive}
-            preload="metadata"
+            preload="auto"
             onLoadedData={() => setVideoLoaded(true)}
             onError={(e) => {
               // eslint-disable-next-line no-console
               console.error('[pindrapp] video error:', e);
               setPlayerError(true);
+            }}
+            onSuspend={() => {
+              // Browser suspended decode (common on mobile when the tab
+              // backgrounds). The visibilitychange/pageshow handlers above
+              // pick up the resume automatically — no action needed here.
+              // eslint-disable-next-line no-console
+              console.log('[pindrapp] video suspended:', post.id);
+            }}
+            onStalled={() => {
+              // Network stalled mid-stream. Re-attach the src to force the
+              // browser to refetch the manifest/segment.
+              const v = nativeVideoRef.current;
+              if (!isActive || !v) return;
+              const src = v.src;
+              v.src = '';
+              window.setTimeout(() => {
+                v.src = src;
+                const p = v.play();
+                if (p && typeof p.catch === 'function') p.catch(() => undefined);
+              }, 500);
             }}
             style={{
               position: 'absolute',

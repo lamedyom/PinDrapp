@@ -32,21 +32,21 @@
   opacity: 0.42;
 }
 
-/* Dim gradient layered on top of media for legibility. Top + bottom are now
- * separate elements so they can fully cover the relevant area — the previous
- * single inset gradient ended at ~92% which left a visible band of bright
- * video right above the bottom UI. */
+/* Dim gradients layered on top of media for legibility. Kept light — max
+ * opacity 0.75 — so the video content in the middle of the frame is never
+ * obscured. Top scrim only fades the top 25% for badge contrast; bottom
+ * scrim covers the bottom 45% for the caption + action row. */
 .scrim {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 30%;
-  z-index: 2;
+  height: 25%;
+  z-index: 3;
   background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.5) 100%
+    to bottom,
+    rgba(0, 0, 0, 0.45) 0%,
+    transparent 100%
   );
   pointer-events: none;
 }
@@ -56,15 +56,14 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60%;
-  z-index: 2;
+  height: 45%;
+  z-index: 3;
   background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.3) 30%,
-    rgba(0, 0, 0, 0.7) 60%,
-    rgba(0, 0, 0, 0.92) 85%,
-    rgba(0, 0, 0, 0.98) 100%
+    to top,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.4) 40%,
+    rgba(0, 0, 0, 0.1) 70%,
+    transparent 100%
   );
   pointer-events: none;
 }
