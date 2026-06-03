@@ -93,6 +93,9 @@ interface AuthState {
   isGuest: boolean;
   /** Which guest-gated action is currently asking for sign-up (null = none). */
   guestPromptType: GuestPromptType | null;
+  /** What the guest was trying to do when they hit the sign-up wall. After
+   *  they finish auth we replay this so they don't have to tap again. */
+  pendingAction: { type: GuestPromptType; targetId: string } | null;
 
   initialize: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -123,9 +126,12 @@ interface AuthState {
     avatarUrl?: string | null;
     bio?: string | null;
   }) => Promise<void>;
-  /** Opens the guest-prompt sheet for a specific action. */
-  showGuestPrompt: (type: GuestPromptType) => void;
+  /** Opens the guest-prompt sheet for a specific action. The optional
+   *  `targetId` is stashed in `pendingAction` so we can replay the tap
+   *  once the user finishes signing in / up. */
+  showGuestPrompt: (type: GuestPromptType, targetId?: string) => void;
   hideGuestPrompt: () => void;
+  clearPendingAction: () => void;
   /** Tap "Continue as Guest" — browse without a session; restricted actions
    *  still surface the sign-up sheet. */
   continueAsGuest: () => void;
@@ -156,6 +162,7 @@ export const useAuthStore = create<AuthState>()(
     error: null,
     isGuest: false,
     guestPromptType: null,
+    pendingAction: null,
 
     initialize: async () => {
       if (authInitStarted) return;
@@ -449,14 +456,20 @@ export const useAuthStore = create<AuthState>()(
       }
     },
 
-    showGuestPrompt: (type) =>
+    showGuestPrompt: (type, targetId) =>
       set((s) => {
         s.guestPromptType = type;
+        if (targetId) s.pendingAction = { type, targetId };
       }),
 
     hideGuestPrompt: () =>
       set((s) => {
         s.guestPromptType = null;
+      }),
+
+    clearPendingAction: () =>
+      set((s) => {
+        s.pendingAction = null;
       }),
 
     continueAsGuest: () =>

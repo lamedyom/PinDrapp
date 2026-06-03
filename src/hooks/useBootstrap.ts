@@ -54,6 +54,41 @@ export function useBootstrap(): void {
   const userLat = useMapStore((s) => s.userLocation?.lat);
   const userLng = useMapStore((s) => s.userLocation?.lng);
 
+  // ── Replay the action the user was trying to do as a guest, the
+  // moment they finish auth. Cleared on first run so we don't replay
+  // again on later renders or stage flips.
+  useEffect(() => {
+    if (stage !== 'authenticated' || !userId) return;
+    const pending = useAuthStore.getState().pendingAction;
+    if (!pending) return;
+    useAuthStore.getState().clearPendingAction();
+    // Defer one tick so the stores that own these actions have re-rendered
+    // with the new auth profile before we fire.
+    window.setTimeout(() => {
+      const f = useFeedStore.getState();
+      const d = useDealStore.getState();
+      const { type, targetId } = pending;
+      // Try feed first (most common path), then deal. Both are no-ops if
+      // the targetId doesn't match a row in their respective store.
+      if (type === 'like') {
+        if (f.posts.some((p) => p.id === targetId)) f.likePost(targetId);
+        else if (d.deals.some((x) => x.id === targetId)) d.likeDeal(targetId);
+      } else if (type === 'hype') {
+        if (f.posts.some((p) => p.id === targetId)) f.hypePost(targetId);
+        else if (d.deals.some((x) => x.id === targetId)) d.hypeDeal(targetId);
+      } else if (type === 'save') {
+        if (f.posts.some((p) => p.id === targetId)) f.pinPost(targetId);
+        else if (d.deals.some((x) => x.id === targetId)) d.pinDealBusiness(targetId);
+      } else if (type === 'follow') {
+        if (f.posts.some((p) => p.id === targetId)) f.followFromPost(targetId);
+        else if (d.deals.some((x) => x.id === targetId)) d.followDealBusiness(targetId);
+      }
+      // 'claim' and 'post' don't auto-replay — those open a checkout sheet /
+      // composer and need an explicit user gesture from the now-logged-in
+      // session anyway.
+    }, 0);
+  }, [stage, userId]);
+
   useEffect(() => {
     // We want feed/deals/explore to show up for guests too — Supabase RLS
     // already gates writes; public SELECTs are open. We only bail out when

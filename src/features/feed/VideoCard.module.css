@@ -32,41 +32,11 @@
   opacity: 0.42;
 }
 
-/* Dim gradients layered on top of media for legibility. Kept light — max
- * opacity 0.75 — so the video content in the middle of the frame is never
- * obscured. Top scrim only fades the top 25% for badge contrast; bottom
- * scrim covers the bottom 45% for the caption + action row. */
-.scrim {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 25%;
-  z-index: 3;
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.45) 0%,
-    transparent 100%
-  );
-  pointer-events: none;
-}
-
-.scrimBottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 45%;
-  z-index: 3;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.75) 0%,
-    rgba(0, 0, 0, 0.4) 40%,
-    rgba(0, 0, 0, 0.1) 70%,
-    transparent 100%
-  );
-  pointer-events: none;
-}
+/* NOTE: the .scrim / .scrimBottom classes used to live here but were
+ * deleted on purpose. They now render as inline styles inside
+ * VideoCard.tsx so a stale Service Worker cache of this CSS file can't
+ * resurrect an old gradient and override the current one. The inline
+ * styles travel with the hashed JS bundle. */
 
 /* ── Top bar (right-aligned only — distance + mute + owner ⋯) ─────────── */
 .topBar {

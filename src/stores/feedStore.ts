@@ -86,7 +86,7 @@ export const useFeedStore = create<FeedState>()(
       const auth = useAuthStore.getState();
       // Guests get the sign-up sheet instead of an optimistic UI bump.
       if (!auth.profile) {
-        auth.showGuestPrompt('like');
+        auth.showGuestPrompt('like', id);
         return;
       }
       // Snapshot the pre-toggle state so we can revert if Supabase rejects.
@@ -122,7 +122,7 @@ export const useFeedStore = create<FeedState>()(
     hypePost: (id) => {
       const auth = useAuthStore.getState();
       if (!auth.profile) {
-        auth.showGuestPrompt('hype');
+        auth.showGuestPrompt('hype', id);
         return;
       }
       const pre = get().posts.find((p) => p.id === id);
@@ -158,7 +158,7 @@ export const useFeedStore = create<FeedState>()(
       const post = get().posts.find((p) => p.id === id);
       if (!post) return;
       if (!auth.profile) {
-        auth.showGuestPrompt('save');
+        auth.showGuestPrompt('save', id);
         return;
       }
       if (!post.businessId) return; // we need a real business to save
@@ -217,7 +217,7 @@ export const useFeedStore = create<FeedState>()(
       const post = get().posts.find((p) => p.id === id);
       if (!post || !post.businessId) return;
       if (!auth.profile) {
-        auth.showGuestPrompt('follow');
+        auth.showGuestPrompt('follow', id);
         return;
       }
       const wasFollowing = post.isFollowing;

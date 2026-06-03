@@ -152,7 +152,7 @@ export const useDealStore = create<DealState>()(
           s.checkoutDealId = null;
           s.checkoutStatus = 'idle';
         });
-        auth.showGuestPrompt('claim');
+        auth.showGuestPrompt('claim', dealId);
         return;
       }
       set((s) => {
@@ -225,7 +225,7 @@ export const useDealStore = create<DealState>()(
     likeDeal: (id) => {
       const auth = useAuthStore.getState();
       if (!auth.profile) {
-        auth.showGuestPrompt('like');
+        auth.showGuestPrompt('like', id);
         return;
       }
       const pre = get().deals.find((d) => d.id === id);
@@ -257,7 +257,7 @@ export const useDealStore = create<DealState>()(
     hypeDeal: (id) => {
       const auth = useAuthStore.getState();
       if (!auth.profile) {
-        auth.showGuestPrompt('hype');
+        auth.showGuestPrompt('hype', id);
         return;
       }
       const pre = get().deals.find((d) => d.id === id);
@@ -291,7 +291,7 @@ export const useDealStore = create<DealState>()(
       const deal = get().deals.find((d) => d.id === id);
       if (!deal || !deal.businessId) return;
       if (!auth.profile) {
-        auth.showGuestPrompt('follow');
+        auth.showGuestPrompt('follow', id);
         return;
       }
       const wasFollowing = deal.isFollowing ?? false;
@@ -318,7 +318,7 @@ export const useDealStore = create<DealState>()(
       const deal = get().deals.find((d) => d.id === id);
       if (!deal || !deal.businessId) return;
       if (!auth.profile) {
-        auth.showGuestPrompt('save');
+        auth.showGuestPrompt('save', id);
         return;
       }
       const wasPinned = deal.isPinned ?? false;

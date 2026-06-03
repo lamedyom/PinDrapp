@@ -87,14 +87,15 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }, [stage, location.pathname, navigate]);
 
-  // No Supabase configured (demo / mock-data mode): the /onboarding and
-  // /auth/* routes have no meaning — never strand the user on the blank
-  // onboarding placeholder. Send them straight to the feed.
+  // No Supabase configured (demo / mock-data mode): the /onboarding route
+  // has no meaning — never strand the user on the blank onboarding
+  // placeholder. /auth/* IS allowed even in `disabled` mode because that
+  // stage is also entered after the user taps "Continue as Guest" — and
+  // a guest still needs to reach the sign-up / sign-in screens from the
+  // guest-prompt sheet. Without this carve-out the buttons on that sheet
+  // navigated → got bounced back to /feed in the same tick.
   useEffect(() => {
-    if (
-      stage === 'disabled' &&
-      (location.pathname === '/onboarding' || location.pathname.startsWith('/auth'))
-    ) {
+    if (stage === 'disabled' && location.pathname === '/onboarding') {
       navigate('/feed', { replace: true });
     }
   }, [stage, location.pathname, navigate]);

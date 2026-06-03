@@ -323,11 +323,11 @@
   margin-bottom: 4px;
 }
 
-/* ── Updates grid ───────────────────────────────────────────────────────── */
+/* ── Updates grid — 2 cols of 9:16 video cards, matches the feed aspect ─ */
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
   padding: 0 16px;
 }
 
@@ -338,9 +338,10 @@
 .cell {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 9 / 16;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 8px;
+  background: #111;
   display: flex;
   align-items: center;
   justify-content: center;

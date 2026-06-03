@@ -347,8 +347,38 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
           </div>
         )}
 
-        <div className={styles.scrim} aria-hidden />
-        <div className={styles.scrimBottom} aria-hidden />
+        {/* Top + bottom scrims are inline-styled (not CSS-module classes)
+         *  so the service worker can't serve a cached older version of the
+         *  gradient. Each ship of VideoCard.tsx carries its own scrim
+         *  bytes inside the hashed JS bundle. */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '25%',
+            background:
+              'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 100%)',
+            pointerEvents: 'none',
+            zIndex: 3,
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '40%',
+            background:
+              'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.08) 75%, transparent 100%)',
+            pointerEvents: 'none',
+            zIndex: 3,
+          }}
+        />
         <AnimatePresence>
           {doubleTapHeart && (
             <motion.div
