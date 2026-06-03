@@ -102,6 +102,10 @@
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 16px;
+  /* The parent .form is display: flex column. Without flex-shrink: 0,
+   * Chromium + Safari can collapse this box to 0 height when sizing the
+   * flex children, which makes the preview "disappear" after Use This. */
+  flex-shrink: 0;
 }
 
 .previewWrap .preview {

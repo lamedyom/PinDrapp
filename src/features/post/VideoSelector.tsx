@@ -289,9 +289,23 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
   // sitting above the caption form. 9:16 frame with autoplay loop so it
   // looks exactly like the feed card it's about to become.
   if (selected) {
+    // eslint-disable-next-line no-console
+    console.log('[pindrapp] committed preview url:', selected.url);
+    // eslint-disable-next-line no-console
+    console.log(
+      '[pindrapp] committed preview blob:',
+      selected.fileName ?? selected.source,
+      'size:',
+      'size' in selected.blob ? selected.blob.size : 'n/a',
+    );
     return (
       <div className={styles.previewWrap}>
         <video
+          // key={selected.url} forces a remount when the URL changes. Mobile
+          // browsers (iOS Safari especially) sometimes ignore a runtime
+          // src swap on a <video> element and keep showing the previous
+          // frame; remounting bypasses that entirely.
+          key={selected.url}
           src={selected.url}
           autoPlay
           muted
