@@ -698,3 +698,18 @@ drop policy if exists videos_authed_write on storage.objects;
 create policy videos_authed_write on storage.objects
   for insert
   with check (bucket_id = 'videos' and auth.role() = 'authenticated');
+
+-- ============================================================================
+-- One-off cleanup: nullify broken blob: video URLs
+-- ============================================================================
+-- Earlier versions of the post submit flow fell back to a local blob: URL
+-- when the Cloudinary upload failed. Those URLs only live in the tab that
+-- created them, so every other viewer sees a black card. Set them to null
+-- here so the feed renders the gradient fallback instead. Business owners
+-- will need to re-record/re-upload the affected posts.
+--
+-- Safe to re-run — idempotent because once a row is null it no longer
+-- matches the predicate.
+update public.posts        set video_url    = null where video_url    like 'blob:%';
+update public.posts        set thumbnail_url = null where thumbnail_url like 'blob:%';
+update public.deals        set media_url    = null where media_url    like 'blob:%';

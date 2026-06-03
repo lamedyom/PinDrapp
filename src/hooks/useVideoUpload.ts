@@ -42,24 +42,18 @@ export function useVideoUpload(): UseVideoUpload {
     setError(null);
 
     if (!cloudName || cloudName.startsWith('your_') || !preset) {
+      // Hard fail: we used to fall back to a local blob URL here, but that
+      // blob:… URL only lives in the browser tab that minted it, so when it
+      // landed in Supabase.posts.video_url every other client saw a broken
+      // video. Refuse to upload — the caller will surface the error and the
+      // post never gets written. Fix the env vars to unblock.
+      setUploading(false);
+      const msg =
+        'Cloudinary not configured (VITE_CLOUDINARY_CLOUD_NAME / VITE_CLOUDINARY_UPLOAD_PRESET). Video upload disabled.';
       // eslint-disable-next-line no-console
-      console.warn(
-        '[pindrapp] Cloudinary env not set — using local blob URL fallback',
-      );
-      // Local fallback: simulate upload using blob URL
-      return new Promise((resolve) => {
-        const blobUrl = URL.createObjectURL(file);
-        let p = 0;
-        const tick = window.setInterval(() => {
-          p += 12;
-          setProgress(Math.min(100, p));
-          if (p >= 100) {
-            window.clearInterval(tick);
-            setUploading(false);
-            resolve({ url: blobUrl, publicId: `local_${Date.now()}`, duration: 0 });
-          }
-        }, 120);
-      });
+      console.error('[pindrapp]', msg);
+      setError(msg);
+      return Promise.reject(new Error(msg));
     }
 
     const formData = new FormData();
@@ -94,6 +88,10 @@ export function useVideoUpload(): UseVideoUpload {
           if (xhr.status === 200 && data.secure_url) {
             // eslint-disable-next-line no-console
             console.log('[pindrapp] Cloudinary upload OK:', data.secure_url);
+            // eslint-disable-next-line no-console
+            console.log('[pindrapp] upload result type:', typeof data.secure_url);
+            // eslint-disable-next-line no-console
+            console.log('[pindrapp] upload result url:', data.secure_url.substring(0, 50));
             resolve({
               url: data.secure_url,
               publicId: data.public_id ?? '',

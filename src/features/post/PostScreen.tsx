@@ -199,16 +199,42 @@ export function PostScreen() {
         return;
       }
 
+      // Step 1: hand the recording to Cloudinary FIRST, and abort the whole
+      // post if that fails. Saving a blob: URL to Supabase here used to
+      // produce posts that only the original tab could play, so we now
+      // refuse to write the row at all rather than create broken content.
       let videoUrl: string | undefined;
       try {
-        videoUrl = (await upload(video.blob)).url;
-      } catch (e) {
-        // Cloudinary failed — keep the local blob URL so the post still saves.
         // eslint-disable-next-line no-console
-        console.warn('[pindrapp] video upload failed, using local blob:', e);
-        videoUrl = video.url;
-        showToast('Video saved locally — will sync when connection improves');
+        console.log('[pindrapp] uploading to Cloudinary…');
+        videoUrl = (await upload(video.blob)).url;
+        // eslint-disable-next-line no-console
+        console.log('[pindrapp] got Cloudinary URL:', videoUrl);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('[pindrapp] video upload failed — aborting post:', e);
+        const msg = e instanceof Error ? e.message : 'Video upload failed';
+        setPostError(`Couldn't upload your video — ${msg}. Please try again.`);
+        showToast('Video upload failed. Please try again.');
+        setPosting(false);
+        return;
       }
+
+      // Safety belt: catch any non-Cloudinary URL before it lands in
+      // Supabase. Blob URLs are the historical foot-gun.
+      if (videoUrl && videoUrl.startsWith('blob:')) {
+        // eslint-disable-next-line no-console
+        console.error('[pindrapp] refusing to save blob: URL to Supabase:', videoUrl);
+        setPostError('Video upload did not return a hosted URL. Please try again.');
+        setPosting(false);
+        return;
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(
+        '[pindrapp] saving video_url to Supabase:',
+        videoUrl?.substring(0, 50),
+      );
 
       let realPostId: string | null = null;
       if (authBusiness) {
@@ -272,13 +298,36 @@ export function PostScreen() {
       const mediaType: 'image' | 'video' = dealMedia === 'video' ? 'video' : 'image';
       if (dealMedia === 'video' && video) {
         try {
+          // eslint-disable-next-line no-console
+          console.log('[pindrapp] uploading deal video to Cloudinary…');
           mediaUrl = (await upload(video.blob)).url;
-        } catch {
-          mediaUrl = video.url;
+          // eslint-disable-next-line no-console
+          console.log('[pindrapp] got Cloudinary URL:', mediaUrl);
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error('[pindrapp] deal video upload failed — aborting:', e);
+          const msg = e instanceof Error ? e.message : 'Video upload failed';
+          setPostError(`Couldn't upload your video — ${msg}. Please try again.`);
+          showToast('Video upload failed. Please try again.');
+          setPosting(false);
+          return;
         }
       } else if (dealMedia === 'photo' && photo) {
         mediaUrl = photo.url;
       }
+      // Same safety belt as the feed flow — never persist a blob: URL.
+      if (mediaUrl && mediaUrl.startsWith('blob:')) {
+        // eslint-disable-next-line no-console
+        console.error('[pindrapp] refusing to save blob: URL to Supabase:', mediaUrl);
+        setPostError('Media upload did not return a hosted URL. Please try again.');
+        setPosting(false);
+        return;
+      }
+      // eslint-disable-next-line no-console
+      console.log(
+        '[pindrapp] saving deal media_url to Supabase:',
+        mediaUrl?.substring(0, 50),
+      );
 
       const originalPrice =
         priceMode === 'price' && deal.originalPrice ? Number(deal.originalPrice) : null;
