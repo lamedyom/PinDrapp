@@ -60,13 +60,13 @@ export function useVideoUpload(): UseVideoUpload {
     formData.append('file', file);
     formData.append('upload_preset', preset);
     formData.append('resource_type', 'video');
-    // Pre-generate the cross-browser variants Cloudinary will serve at play
-    // time. Async = the upload returns immediately; the variants warm in
-    // the background. f_auto/q_auto/vc_auto matches the runtime URL
-    // transform in src/lib/cloudinary.ts so the first request is a cache
-    // hit instead of a cold transform.
-    formData.append('eager', 'f_auto,q_auto,vc_auto');
-    formData.append('eager_async', 'true');
+    // No `eager` / `eager_async` here: those parameters require a signed
+    // upload preset, and ours is unsigned (the simplest preset for a SPA
+    // with no server-side signing endpoint). Cloudinary still serves the
+    // right container per browser at play time — getStreamableUrl() in
+    // src/lib/cloudinary.ts injects q_auto,vc_auto,f_auto into the URL
+    // before it hits the <video> element, which runs the same transform
+    // lazily on first request and caches the result on the CDN.
 
     const xhr = new XMLHttpRequest();
     xhr.upload.onprogress = (e) => {
