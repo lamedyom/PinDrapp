@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Camera, Check, RefreshCw, RotateCcw, Trash2, UploadCloud, X } from 'lucide-react';
+import { Camera, Check, RefreshCw, RotateCcw, UploadCloud, X } from 'lucide-react';
 import styles from './VideoSelector.module.css';
 
 export interface SelectedVideo {
@@ -285,33 +285,31 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
   });
 
   // ── Committed preview (parent holds `selected`)
+  // ── Committed preview (parent holds `selected`) — what the user sees
+  // sitting above the caption form. 9:16 frame with autoplay loop so it
+  // looks exactly like the feed card it's about to become.
   if (selected) {
-    const isUpload = selected.source === 'upload';
     return (
       <div className={styles.previewWrap}>
-        <video src={selected.url} controls playsInline className={styles.preview} />
-        <div className={styles.previewMeta}>
-          <div className={styles.previewInfo}>
-            <span className={styles.previewName}>
-              {selected.fileName ?? (isUpload ? 'Selected video' : 'Your recording')}
-            </span>
-            {selected.durationSec ? (
-              <span className={styles.previewDuration}>{fmtClock(selected.durationSec)}</span>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            className={styles.removeBtn}
-            onClick={() => {
-              URL.revokeObjectURL(selected.url);
-              onSelect(null);
-              setMode('idle');
-            }}
-          >
-            {isUpload ? <Trash2 size={14} /> : <RotateCcw size={14} />}
-            {isUpload ? 'Remove' : 'Retake'}
-          </button>
-        </div>
+        <video
+          src={selected.url}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className={styles.preview}
+        />
+        <button
+          type="button"
+          className={styles.previewChangeBtn}
+          onClick={() => {
+            URL.revokeObjectURL(selected.url);
+            onSelect(null);
+            setMode('idle');
+          }}
+        >
+          Change
+        </button>
       </div>
     );
   }
