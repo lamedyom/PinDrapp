@@ -14,12 +14,21 @@ import styles from './EditProfileModal.module.css';
 
 const CATEGORIES = [
   'Food',
-  'Shopping',
-  'Beauty',
-  'Services',
-  'Entertainment',
-  'Bakery',
   'Coffee',
+  'Bakery',
+  'Fashion',
+  'Jewelry',
+  'Beauty',
+  'Fitness',
+  'Books',
+  'Electronics',
+  'Wine',
+  'Market',
+  'Events',
+  'Services',
+  'Health',
+  'Music',
+  'Japanese',
   'Other',
 ];
 
@@ -35,6 +44,11 @@ export function EditProfileModal() {
   const update = useUserStore((s) => s.updateProfile);
 
   const [form, setForm] = useState<BusinessProfile | null>(profile ?? null);
+  // Snapshot of the form at modal-open time. JSON-compared on every render
+  // to decide whether the Done / Save buttons should be enabled (no point
+  // hitting Supabase with an unchanged payload).
+  const initialSnapshotRef = useRef<string>('');
+  const [saving, setSaving] = useState(false);
 
   const authBusiness = useAuthStore((s) => s.business);
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
@@ -54,16 +68,22 @@ export function EditProfileModal() {
 
   useEffect(() => {
     if (open) {
-      setForm(profile ?? null);
-      setCoords(
+      const next = profile ?? null;
+      setForm(next);
+      const nextCoords =
         authBusiness?.lat != null && authBusiness?.lng != null
           ? { lat: authBusiness.lat, lng: authBusiness.lng }
-          : null,
-      );
+          : null;
+      setCoords(nextCoords);
+      // Stash the open-state snapshot so the dirty check below can compare.
+      initialSnapshotRef.current = JSON.stringify({ form: next, coords: nextCoords });
       setSuggestions([]);
       setAddressFocused(false);
     }
   }, [open, profile, authBusiness]);
+
+  const dirty =
+    !!form && JSON.stringify({ form, coords }) !== initialSnapshotRef.current;
 
   // Debounced address autocomplete via Mapbox geocoding.
   useEffect(() => {
@@ -121,9 +141,20 @@ export function EditProfileModal() {
   });
 
   const save = async () => {
-    if (!form) return;
+    if (!form || saving) return;
+    setSaving(true);
+    // Normalize web links the user is unlikely to type consistently:
+    //   - websites often pasted with scheme; we want bare host.
+    //   - instagram handles often typed with @; we store the bare username.
+    const cleanedWebsite = form.website.replace(/^https?:\/\//i, '').trim();
+    const cleanedInstagram = form.instagram.replace(/^@+/, '').trim();
+    const normalized: BusinessProfile = {
+      ...form,
+      website: cleanedWebsite,
+      instagram: cleanedInstagram,
+    };
     // Always update the local store for instant UI.
-    update(form);
+    update(normalized);
 
     // Persist to Supabase when this is a real signed-in business.
     if (authBusiness && supabase) {
@@ -131,14 +162,15 @@ export function EditProfileModal() {
         const { error } = await supabase
           .from('businesses')
           .update({
-            name: form.name,
-            bio: form.bio,
-            category: form.category,
-            website: form.website,
-            instagram: form.instagram,
-            phone: form.phone,
-            address: form.address,
-            avatar_url: form.imageUrl,
+            name: normalized.name,
+            bio: normalized.bio,
+            category: normalized.category,
+            website: normalized.website,
+            instagram: normalized.instagram,
+            phone: normalized.phone,
+            address: normalized.address,
+            avatar_url: normalized.imageUrl,
+            cover_emoji: normalized.coverEmoji,
             // Coords from the geocoder selection — written alongside the
             // address text so the business pin lands at the right location.
             ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
@@ -149,11 +181,13 @@ export function EditProfileModal() {
         showToast('Profile saved ✓');
       } catch (e) {
         showToast(`Couldn't save profile${e instanceof Error ? ` — ${e.message}` : ''}`);
+        setSaving(false);
         return; // keep the modal open so the user can retry
       }
     } else {
       showToast('Profile updated ✓');
     }
+    setSaving(false);
     close();
   };
 
@@ -166,8 +200,14 @@ export function EditProfileModal() {
       <div className={styles.host}>
         <header className={styles.head}>
           <h3>Edit Profile</h3>
-          <button type="button" className={styles.doneBtn} onClick={() => void save()}>
-            Done
+          <button
+            type="button"
+            className={styles.doneBtn}
+            onClick={() => void save()}
+            disabled={!dirty || saving}
+            style={!dirty || saving ? { opacity: 0.4, pointerEvents: 'none' } : undefined}
+          >
+            {saving ? 'Saving…' : 'Done'}
           </button>
         </header>
 
@@ -253,6 +293,7 @@ export function EditProfileModal() {
             <input
               className={styles.input}
               type="tel"
+              placeholder="+1 (555) 000-0000"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
             />
@@ -314,8 +355,14 @@ export function EditProfileModal() {
           <button type="button" className={styles.cancelBtn} onClick={close}>
             Cancel
           </button>
-          <Button fullWidth variant="primary" size="lg" onClick={() => void save()}>
-            Save Changes
+          <Button
+            fullWidth
+            variant="primary"
+            size="lg"
+            disabled={!dirty || saving}
+            onClick={() => void save()}
+          >
+            {saving ? 'Saving…' : 'Save Changes'}
           </Button>
         </footer>
       </div>

@@ -53,6 +53,11 @@ create index if not exists businesses_location_idx on public.businesses(lat, lng
 alter table public.businesses
   add column if not exists cover_photo_url text;
 
+-- Picked from the emoji grid in Edit Profile; renders behind the avatar
+-- when no cover_photo_url is set. Default 📍 matches the pin theme.
+alter table public.businesses
+  add column if not exists cover_emoji text default '📍';
+
 -- Pro tier — visibility / AI / analytics. Free businesses get full flash-deal
 -- and feed access; Pro adds verified badge, priority placement, AI Autopilot.
 alter table public.businesses
@@ -688,6 +693,14 @@ create policy avatars_public_read on storage.objects
 drop policy if exists avatars_authed_write on storage.objects;
 create policy avatars_authed_write on storage.objects
   for insert
+  with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+
+-- Avatars can be overwritten by their owner — the Edit Profile flow uses
+-- upsert when re-uploading a new photo to the same path.
+drop policy if exists avatars_authed_update on storage.objects;
+create policy avatars_authed_update on storage.objects
+  for update
+  using (bucket_id = 'avatars' and auth.role() = 'authenticated')
   with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
 
 drop policy if exists videos_public_read on storage.objects;

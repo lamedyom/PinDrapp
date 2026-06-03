@@ -311,7 +311,7 @@ function ConsumerEditModal({ open, onClose }: { open: boolean; onClose: () => vo
           <input
             className={styles.editInput}
             value={name}
-            maxLength={40}
+            maxLength={50}
             onChange={(e) => setName(e.target.value)}
           />
         </label>
