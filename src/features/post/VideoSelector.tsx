@@ -316,11 +316,31 @@ export function VideoSelector({ selected, onSelect }: VideoSelectorProps) {
     );
   }
 
-  // ── Reviewing a fresh recording
+  // ── Reviewing a fresh recording — fullscreen overlay, auto-loops the
+  // local blob so the user gets the "feed card" feel before committing.
+  // The blob URL never leaves the device; Cloudinary only happens once
+  // they tap Post in the parent screen.
   if (mode === 'reviewing' && review) {
     return (
       <div className={styles.reviewWrap}>
-        <video src={review.url} controls playsInline className={styles.preview} />
+        <video
+          src={review.url}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className={styles.preview}
+        />
+        <div className={styles.reviewTopBar}>
+          <button
+            type="button"
+            className={styles.reviewClose}
+            aria-label="Discard recording"
+            onClick={retake}
+          >
+            <X size={16} />
+          </button>
+        </div>
         <div className={styles.reviewActions}>
           <button type="button" className={styles.retakeBtn} onClick={retake}>
             <RotateCcw size={16} /> Retake

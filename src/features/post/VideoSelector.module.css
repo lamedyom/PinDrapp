@@ -154,56 +154,100 @@
   transform: scale(0.95);
 }
 
-/* Review (after recording, before confirm) */
+/* Review (after recording, before confirm) — fullscreen overlay so the
+ * recorded preview plays at the same 9:16 scale the user just shot it at,
+ * and the Retake/Use This buttons always sit on the safe-area bottom. */
 .reviewWrap {
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
+  height: 100dvh;
   background: #000;
-  border-radius: 18px;
+  z-index: 50;
   overflow: hidden;
 }
 
 .reviewWrap .preview {
-  height: 300px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Soft dark fade at the top so the X close button stays readable. */
+.reviewTopBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+  z-index: 51;
+  display: flex;
+  align-items: center;
+  padding: 16px;
+}
+
+.reviewClose {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .reviewActions {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr;
-  gap: 8px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 51;
+  display: flex;
+  gap: 12px;
+  padding: 24px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
 }
 
 .retakeBtn {
+  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 12px;
+  padding: 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-strong);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
   font-family: var(--font-head);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   transition: transform 100ms ease;
 }
 
 .useBtn {
+  flex: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 12px;
+  padding: 14px;
   border-radius: 12px;
   background: var(--orange);
+  border: none;
   color: #fff;
   font-family: var(--font-head);
   font-weight: 800;
-  font-size: 13px;
-  box-shadow: 0 4px 16px rgba(255, 92, 26, 0.35);
+  font-size: 15px;
+  box-shadow: 0 4px 16px rgba(255, 92, 26, 0.4);
   transition: transform 100ms ease;
 }
 
