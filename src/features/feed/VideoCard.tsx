@@ -64,6 +64,21 @@ export function VideoCard({ post, isActive }: VideoCardProps) {
   // pass through unchanged.
   const sourceUrl = post.videoUrl ? getStreamableUrl(post.videoUrl) : '';
 
+  // Debug: trace the URL + active/loaded state every time they change so
+  // we can see in the browser console which video URL the element is
+  // actually being handed (raw vs. f_auto-transformed) and whether the
+  // card has been picked as active by the IntersectionObserver.
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[pindrapp] video src:', getStreamableUrl(post.videoUrl ?? ''));
+    // eslint-disable-next-line no-console
+    console.log('[pindrapp] raw url:', post.videoUrl);
+    // eslint-disable-next-line no-console
+    console.log('[pindrapp] isActive:', isActive);
+    // eslint-disable-next-line no-console
+    console.log('[pindrapp] videoLoaded:', videoLoaded);
+  }, [post.videoUrl, isActive, videoLoaded]);
+
   // Drive play/pause from `isActive`. The element stays mounted so we never
   // Drive play/pause from `isActive`. The element stays mounted so we never
   // get the black-flash that came from remounting on every active swap.
